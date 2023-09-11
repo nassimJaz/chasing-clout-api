@@ -1,12 +1,16 @@
 package com.takima.backskeleton.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
 
-@Entity(name = "majors")
+@Entity
+@Table(name = "majors")
+@Getter
 @NoArgsConstructor
 public class Major {
     @Id
@@ -15,6 +19,7 @@ public class Major {
     private String name;
     private String description;
     @OneToMany(mappedBy = "major")
+    @JsonIgnore
     private List<Student> students;
 
 }
