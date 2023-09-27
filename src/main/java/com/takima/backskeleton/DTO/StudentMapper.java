@@ -13,7 +13,7 @@ public class StudentMapper {
                 .birthdate(dto.getBirthdate())
                 .courses(dto.getCourses())
                 .major(dto.getMajor())
-                .image(dto.getImage().isEmpty() ? dto.getImage().getBytes() : null)
+                .image(dto.getImage() == null ? null : dto.getImage().getBytes())
                 .build();
     }
 
