@@ -27,6 +27,8 @@ public class Student {
     @ManyToOne()
     @JoinColumn(name = "major_id")
     private Major major;
+    @Column(name = "image")
+    private byte[] image;
 
     private Student(Builder builder) {
         this.id = builder.id;
@@ -35,20 +37,23 @@ public class Student {
         this.birthdate = builder.birthdate;
         this.courses = builder.courses;
         this.major = builder.major;
+        this.image = builder.image;
     }
-    public Student(){
+    public Student() {
     }
 
     public static class Builder {
-        private final Long id;
+        private Long id;
         private String firstName;
         private String lastName;
         private Instant birthdate;
         private List<Course> courses;
         private Major major;
+        private byte[] image;
 
-        public Builder(Long id) {
+        public Builder id (Long id) {
             this.id = id;
+            return this;
         }
 
         public Builder firstName(String firstName) {
@@ -69,6 +74,10 @@ public class Student {
         }
         public Builder birthdate(Instant birthdate) {
             this.birthdate = birthdate;
+            return this;
+        }
+        public Builder image(byte[] image) {
+            this.image = image;
             return this;
         }
 

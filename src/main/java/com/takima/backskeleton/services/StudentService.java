@@ -1,12 +1,16 @@
 package com.takima.backskeleton.services;
 
 import com.takima.backskeleton.DAO.StudentDao;
+import com.takima.backskeleton.DTO.StudentDto;
+import com.takima.backskeleton.DTO.StudentMapper;
 import com.takima.backskeleton.models.Student;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @Component
 @RequiredArgsConstructor
@@ -24,9 +28,26 @@ public class StudentService {
         studentDao.deleteById(id);
     }
 
-    public void addStudent(Student student) {
+    public void addStudent(StudentDto studentDto) {
+        Student student;
+        try {
+            student = StudentMapper.fromDto(studentDto, null);
+        } catch (IOException e) {
+            throw new RuntimeException("Error with Student image", e);
+        }
         studentDao.save(student);
+    }
 
+    public void updateStudent(StudentDto studentDto, Long id) {
+        studentDao.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Student doesn't exist"));
+        Student student;
+        try {
+            student = StudentMapper.fromDto(studentDto, id);
+        } catch (IOException e) {
+            throw new RuntimeException("Error with Student image", e);
+        }
+        studentDao.save(student);
     }
 
     public List<Student> searchByMajorAndCourse(int majorId, int courseId) {

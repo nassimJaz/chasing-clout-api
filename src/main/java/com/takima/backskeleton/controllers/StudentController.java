@@ -1,5 +1,6 @@
 package com.takima.backskeleton.controllers;
 
+import com.takima.backskeleton.DTO.StudentDto;
 import com.takima.backskeleton.models.Student;
 import com.takima.backskeleton.services.StudentService;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,12 @@ public class StudentController {
     }
 
     @PostMapping("")
-    public void addStudent(@RequestBody Student student) {
-        studentService.addStudent(student);
+    public void addStudent(@RequestBody StudentDto studentDto) {
+        studentService.addStudent(studentDto);
+    }
+
+    @PostMapping("/{id}")
+    public void updateStudent(@RequestBody StudentDto studentDto, @PathVariable Long id) {
+        studentService.updateStudent(studentDto, id);
     }
 }

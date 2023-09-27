@@ -4,7 +4,8 @@ create table students
     first_name TEXT not null,
     last_name TEXT not null,
     birthdate date null,
-    major_id int null
+    major_id int null,
+    image bytea null
 );
 
 create table majors
