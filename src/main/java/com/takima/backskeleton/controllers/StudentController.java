@@ -22,6 +22,11 @@ public class StudentController {
         return studentService.findAll();
     }
 
+    @GetMapping("/{id}")
+    public Student getStudentById(@PathVariable Long id) {
+        return studentService.getById(id);
+    }
+
     @DeleteMapping("/{id}")
     public void deleteStudent(@PathVariable Long id) {
         studentService.deleteById(id);

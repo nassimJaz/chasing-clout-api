@@ -24,6 +24,10 @@ public class StudentService {
         return users ;
     }
 
+    public Student getById(Long id) {
+        return studentDao.findById(id).orElseThrow();
+    }
+
     public void deleteById(Long id) {
         studentDao.deleteById(id);
     }
