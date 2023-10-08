@@ -1,4 +1,12 @@
-INSERT INTO majors (id, name, description) VALUES (1, 'MIN', 'Ouaiiis du code partout');
+INSERT INTO majors (id, name, description) VALUES (1, 'Ingéniérie du Numérique', 'Ouaiiis du code partout');
+INSERT INTO majors (id, name, description) VALUES (2, 'Structure & Matériaux', 'Beaucoup de béton et des poutres (snif elle a été renomée)');
+INSERT INTO majors (id, name, description) VALUES (3, 'Aéronautique & Espace', 'Vive le vent');
+INSERT INTO majors (id, name, description) VALUES (4, 'Data Engineering', 'Trop cool plein de données à ordonner');
+INSERT INTO majors (id, name, description) VALUES (5, 'Energie & Environnement', 'On est full green');
+INSERT INTO majors (id, name, description) VALUES (6, 'Engineering Management', 'Des managers de qualité');
+INSERT INTO majors (id, name, description) VALUES (7, 'Ingénierie & Santé', 'On connait tous les os et tous les muscles du corps humain');
+INSERT INTO majors (id, name, description) VALUES (8, 'Ingénierie & Architecture durable', 'Objectif 0 carbon');
+INSERT INTO majors (id, name, description) VALUES (9, 'Design Industriel Durable', 'Ca existait pas pour la P2022 ça');
 
 INSERT INTO students (id, first_name, last_name, birthdate, major_id, image) VALUES (1, 'Paul', 'Harrohide', '2002-06-15', 1, null);
 INSERT INTO students (id, first_name, last_name, birthdate, major_id, image) VALUES (2, 'Jean', 'Bonbeur', '2001-08-21', 1, null);
