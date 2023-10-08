@@ -17,5 +17,4 @@ public class StudentDto {
     private Instant birthdate;
     private List<Course> courses;
     private Major major;
-    private MultipartFile image;
 }

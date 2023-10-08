@@ -24,11 +24,9 @@ public class Student {
             joinColumns = @JoinColumn(name = "student_id"),
             inverseJoinColumns = @JoinColumn(name = "course_id"))
     private List<Course> courses;
-    @ManyToOne()
+    @ManyToOne(cascade = CascadeType.MERGE)
     @JoinColumn(name = "major_id")
     private Major major;
-    @Column(name = "image")
-    private byte[] image;
 
     private Student(Builder builder) {
         this.id = builder.id;
@@ -37,7 +35,6 @@ public class Student {
         this.birthdate = builder.birthdate;
         this.courses = builder.courses;
         this.major = builder.major;
-        this.image = builder.image;
     }
     public Student() {
     }
@@ -49,7 +46,6 @@ public class Student {
         private Instant birthdate;
         private List<Course> courses;
         private Major major;
-        private byte[] image;
 
         public Builder id (Long id) {
             this.id = id;
@@ -74,10 +70,6 @@ public class Student {
         }
         public Builder birthdate(Instant birthdate) {
             this.birthdate = birthdate;
-            return this;
-        }
-        public Builder image(byte[] image) {
-            this.image = image;
             return this;
         }
 

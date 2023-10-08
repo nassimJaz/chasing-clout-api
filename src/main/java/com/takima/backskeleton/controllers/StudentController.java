@@ -5,6 +5,7 @@ import com.takima.backskeleton.models.Student;
 import com.takima.backskeleton.services.StudentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -20,6 +21,11 @@ public class StudentController {
             return studentService.searchByMajorAndCourse(majorId, courseId);
         }
         return studentService.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public Student getStudentById(@PathVariable Long id) {
+        return studentService.getById(id);
     }
 
     @DeleteMapping("/{id}")
