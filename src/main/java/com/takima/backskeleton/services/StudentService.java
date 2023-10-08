@@ -43,6 +43,7 @@ public class StudentService {
         } catch (IOException e) {
             throw new RuntimeException("Error with Student image", e);
         }
+
         studentDao.save(student);
     }
 

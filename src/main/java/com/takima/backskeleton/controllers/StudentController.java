@@ -5,6 +5,7 @@ import com.takima.backskeleton.models.Student;
 import com.takima.backskeleton.services.StudentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -40,5 +41,10 @@ public class StudentController {
     @PostMapping("/{id}")
     public void updateStudent(@RequestBody StudentDto studentDto, @PathVariable Long id) {
         studentService.updateStudent(studentDto, id);
+    }
+
+    @PostMapping("/{id}/picture")
+    public void editStudentPicture(@RequestPart("file") MultipartFile file) {
+
     }
 }
