@@ -8,9 +8,9 @@ INSERT INTO majors (id, name, description) VALUES (7, 'Ingénierie & Santé', 'O
 INSERT INTO majors (id, name, description) VALUES (8, 'Ingénierie & Architecture durable', 'Objectif 0 carbon');
 INSERT INTO majors (id, name, description) VALUES (9, 'Design Industriel Durable', 'Ca existait pas pour la P2022 ça');
 
-INSERT INTO students (id, first_name, last_name, birthdate, major_id, image) VALUES (1, 'Paul', 'Harrohide', '2002-06-15', 1, null);
-INSERT INTO students (id, first_name, last_name, birthdate, major_id, image) VALUES (2, 'Jean', 'Bonbeur', '2001-08-21', 1, null);
-INSERT INTO students (id, first_name, last_name, birthdate, major_id, image) VALUES (3, 'Alain', 'Térieur', '2000-01-11', 1, null);
+INSERT INTO students (id, first_name, last_name, birthdate, major_id) VALUES (1, 'Paul', 'Harrohide', '2002-06-15', 1);
+INSERT INTO students (id, first_name, last_name, birthdate, major_id) VALUES (2, 'Jean', 'Bonbeur', '2001-08-21', 1);
+INSERT INTO students (id, first_name, last_name, birthdate, major_id) VALUES (3, 'Alain', 'Térieur', '2000-01-11', 1);
 
 INSERT INTO courses (id, name, hours) VALUES (1, 'Spanish', 30);
 INSERT INTO courses (id, name, hours) VALUES (2, 'German', 30);

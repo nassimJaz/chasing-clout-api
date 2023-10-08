@@ -42,9 +42,4 @@ public class StudentController {
     public void updateStudent(@RequestBody StudentDto studentDto, @PathVariable Long id) {
         studentService.updateStudent(studentDto, id);
     }
-
-    @PostMapping("/{id}/picture")
-    public void editStudentPicture(@RequestPart("file") MultipartFile file) {
-
-    }
 }
