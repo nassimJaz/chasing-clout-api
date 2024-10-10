@@ -1,14 +1,22 @@
 package com.takima.backskeleton.models;
 
-import jakarta.persistence.*;
-import lombok.Getter;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 import java.time.Instant;
 import java.util.List;
 
 @Entity
 @Table(name = "students")
-@Getter
 public class Student {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,6 +45,30 @@ public class Student {
         this.major = builder.major;
     }
     public Student() {
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public Instant getBirthdate() {
+        return birthdate;
+    }
+
+    public List<Course> getCourses() {
+        return courses;
+    }
+
+    public Major getMajor() {
+        return major;
     }
 
     public static class Builder {

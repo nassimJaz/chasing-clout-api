@@ -17,7 +17,7 @@ public class StudentMapper {
     }
 
     public static StudentDto toDto (Student student){
-        return StudentDto.builder()
+        return new StudentDto.StudentDtoBuilder()
                 .firstName(student.getFirstName())
                 .lastName(student.getLastName())
                 .birthdate(student.getBirthdate())
