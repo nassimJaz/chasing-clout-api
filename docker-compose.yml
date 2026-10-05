@@ -1,7 +1,7 @@
 version: '3.1'
 services:
   database:
-    container_name: api_database
+    container_name: chasing_clout_db
     image: postgres
     restart: always
     env_file:
@@ -13,3 +13,6 @@ services:
       POSTGRES_DB: ${DATABASE_NAME}
     ports:
       - "${DATABASE_PORT}:${DATABASE_PORT}"
+    volumes:
+      # scripts only run on an empty volume: `docker compose down -v` to reset the DB
+      - ./initdb:/docker-entrypoint-initdb.d
