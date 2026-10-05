@@ -106,8 +106,13 @@ CORS ouvert par `@CrossOrigin` sur les controllers. En cas d'erreur, le JSON con
   - `CatalogController` (`/cards`, `/boosters`) et `MeController` (`/me/...`, utilisateur `demo` en dur) ; lectures directement via les DAO, écritures via les services.
   - `server.error.include-message=always` pour que le front reçoive les messages des `ResponseStatusException`.
   - `ApiIntegrationTest` (MockMvc, base requise, rollback) : achat → inventaire → ouverture (10 cartes) → 409 à la réouverture → collection ; 409 si solde insuffisant.
-- [ ] **Phase 6 — Front Angular** : Boutique, Inventaire, Ouverture (révélation animée, effets CSS holo/feu), Collection (filtres par rareté) ; retirer les pages Student/Major
-- [ ] **Phase 7 — Finitions** : URL de l'API dans `environment.ts`, README du front (CORS déjà fait côté API)
+- [x] **Phase 6 — Front Angular** (branche `feature/tcg-pages` du front) : vérifié, `ng build` (prod) passe et parcours testé dans Chrome
+  (achat Tri-pack → solde mis à jour → inventaire → ouverture → « Ouvrir le suivant » → collection et filtres)
+  - Pages `boutique`, `inventaire`, `ouverture/:id`, `collection` ; squelette Student/Major/Home et images Takima supprimés.
+  - `GameService` : tous les appels API + `profile$` (solde dans la navbar, rechargé après un achat). Modèles dans `models/game.model.ts`.
+  - `meme-card` : carte réutilisée (retournement 3D, cadre par rareté, reflet holo, flammes animées, grisée si non possédée).
+  - Les composants n'importent pas `theme.scss` (ça embarque tout le CSS Material, budget prod dépassé) : couleurs en variables `--cc-purple` / `--cc-red` dans `styles.scss`.
+- [ ] **Phase 7 — Finitions** : README du front (l'URL de l'API est déjà dans `environment.ts`, le CORS déjà fait côté API)
 
 ### Points ouverts
 - Quelques noms du dataset sont douteux pour un projet d'école (ex. « Pedobear ») : à filtrer ou renommer dans `scripts/import_memes.py` si besoin.
