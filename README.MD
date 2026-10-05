@@ -112,7 +112,7 @@ CORS ouvert par `@CrossOrigin` sur les controllers. En cas d'erreur, le JSON con
   - `GameService` : tous les appels API + `profile$` (solde dans la navbar, rechargé après un achat). Modèles dans `models/game.model.ts`.
   - `meme-card` : carte réutilisée (retournement 3D, cadre par rareté, reflet holo, flammes animées, grisée si non possédée).
   - Les composants n'importent pas `theme.scss` (ça embarque tout le CSS Material, budget prod dépassé) : couleurs en variables `--cc-purple` / `--cc-red` dans `styles.scss`.
-- [ ] **Phase 7 — Finitions** : README du front (l'URL de l'API est déjà dans `environment.ts`, le CORS déjà fait côté API)
+- [x] **Phase 7 — Finitions** : URL de l'API dans `environment.ts`, CORS via `@CrossOrigin`, README du front (lancement, pages, organisation du code, pièges)
 
 ### Points ouverts
 - Quelques noms du dataset sont douteux pour un projet d'école (ex. « Pedobear ») : à filtrer ou renommer dans `scripts/import_memes.py` si besoin.
