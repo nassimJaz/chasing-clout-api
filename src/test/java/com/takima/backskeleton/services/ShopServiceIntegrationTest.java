@@ -1,0 +1,91 @@
+package com.takima.backskeleton.services;
+
+import com.takima.backskeleton.DAO.AppUserDao;
+import com.takima.backskeleton.DAO.BoosterTypeDao;
+import com.takima.backskeleton.DAO.UserBoosterDao;
+import com.takima.backskeleton.models.BoosterType;
+import com.takima.backskeleton.models.Purchase;
+import com.takima.backskeleton.models.PurchaseFormat;
+import com.takima.backskeleton.models.UserBooster;
+import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+// Needs the database (docker compose up -d); every test is rolled back. The demo user (id 1) starts with 5000 memes.
+@SpringBootTest
+@Transactional
+class ShopServiceIntegrationTest {
+    private static final long DEMO = 1L;
+
+    @Autowired
+    private ShopService shopService;
+    @Autowired
+    private AppUserDao appUserDao;
+    @Autowired
+    private BoosterTypeDao boosterTypeDao;
+    @Autowired
+    private UserBoosterDao userBoosterDao;
+    @Autowired
+    private EntityManager entityManager;
+
+    @Test
+    void buyDebitsAndAddsUnopenedBoosters() {
+        Purchase purchase = shopService.buy(DEMO, PurchaseFormat.TRI_PACK, type("SPECIAL"), null);
+
+        assertEquals(600, purchase.getTotalPrice());
+        assertEquals(4400, balance());
+        List<UserBooster> boosters = boostersOf(purchase);
+        assertEquals(3, boosters.size());
+        boosters.forEach(b -> assertEquals("SPECIAL", b.getBoosterType().getCode()));
+    }
+
+    @Test
+    void mixedDisplayIsHalfOfEach() {
+        Purchase purchase = shopService.buy(DEMO, PurchaseFormat.DISPLAY_MEDIUM, type("BASIC"), type("SPECIAL"));
+
+        assertEquals(4200, purchase.getTotalPrice()); // (10 x 100 + 5 x 40) + (10 x 250 + 5 x 100)
+        assertEquals(800, balance());
+        List<UserBooster> boosters = boostersOf(purchase);
+        assertEquals(15, boosters.stream().filter(b -> b.getBoosterType().getCode().equals("BASIC")).count());
+        assertEquals(15, boosters.stream().filter(b -> b.getBoosterType().getCode().equals("SPECIAL")).count());
+    }
+
+    @Test
+    void notEnoughMemesBuysNothing() {
+        assertThrows(ResponseStatusException.class,
+                () -> shopService.buy(DEMO, PurchaseFormat.DISPLAY_MEGA, type("COLLECTION"), null));
+
+        assertEquals(5000, balance());
+        assertEquals(0, userBoosterDao.findByUserIdAndOpenedAtIsNull(DEMO).size());
+    }
+
+    @Test
+    void mixIsOnlyForMediumAndMega() {
+        assertThrows(ResponseStatusException.class,
+                () -> shopService.buy(DEMO, PurchaseFormat.TRI_PACK, type("BASIC"), type("SPECIAL")));
+
+        assertEquals(5000, balance());
+    }
+
+    private Long type(String code) {
+        return boosterTypeDao.findAll().stream().filter(t -> t.getCode().equals(code)).findFirst().map(BoosterType::getId).orElseThrow();
+    }
+
+    private long balance() {
+        entityManager.clear(); // debit is a bulk update, reload the user from the database
+        return appUserDao.findById(DEMO).orElseThrow().getMemeBalance();
+    }
+
+    private List<UserBooster> boostersOf(Purchase purchase) {
+        return userBoosterDao.findByUserIdAndOpenedAtIsNull(DEMO).stream()
+                .filter(b -> b.getPurchase().getId().equals(purchase.getId())).toList();
+    }
+}

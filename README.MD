@@ -81,14 +81,20 @@ erDiagram
   - `GachaServiceTest` (sans base) : fréquences sur 1M tirages de `pickWeighted` à ±0,2 % pour (60, 30, 10), (1, 1, 1) et les finitions.
   - `GachaServiceIntegrationTest` (base requise, rollback) : 10 / 10 / 12 cartes, positions, rareté permise par le slot,
     collection incrémentée, deuxième ouverture refusée.
-- [ ] **Phase 4 — Boutique (`ShopService`)** : calcul du prix (5 formats + mixte), `debit(...) == 1` sinon « solde insuffisant », `Purchase` + `n` `UserBooster` ; tests des prix
+- [x] **Phase 4 — Boutique (`ShopService`)** : vérifié, `mvn test` passe (19 tests) sur la base lancée
+  - `ShopService.buy(userId, format, boosterTypeId, secondBoosterTypeId)` : `secondBoosterTypeId` non null = mixte 50/50
+    (Display Medium/Méga seulement, sinon 400) ; `debit` d'abord (sinon 409 « Solde insuffisant »), puis `Purchase` + `n` `UserBooster` non ouverts.
+  - `ShopService.price(unitPrice, count)` : `count / 3` boosters à -60 % ; en mixte, appliqué à chaque moitié.
+  - `ShopServiceTest` (sans base) : prix des 5 formats et des mixtes. `ShopServiceIntegrationTest` (base requise, rollback) :
+    débit et boosters créés, mixte 15 + 15, solde insuffisant (rien n'est acheté), mixte refusé hors Medium/Méga.
 - [ ] **Phase 5 — API REST** : boutique, inventaire, ouverture, collection, profil ; DTO en `record` Java (ne plus renvoyer les entités directement)
 - [ ] **Phase 6 — Front Angular** : Boutique, Inventaire, Ouverture (révélation animée, effets CSS holo/feu), Collection (filtres par rareté) ; retirer les pages Student/Major
 - [ ] **Phase 7 — Finitions** : URL de l'API dans `environment.ts`, CORS, README du front
 
 ### Points ouverts
 - Quelques noms du dataset sont douteux pour un projet d'école (ex. « Pedobear ») : à filtrer ou renommer dans `scripts/import_memes.py` si besoin.
-- `BackSkeletonApplicationTests` (contextLoads) et `GachaServiceIntegrationTest` ont besoin de la base lancée.
+- Les tests `*IntegrationTest` et `BackSkeletonApplicationTests` (contextLoads) ont besoin de la base lancée.
+- Après `AppUserDao.debit` (requête de masse), un `AppUser` déjà chargé dans la même transaction garde l'ancien solde : le relire après un `clear()`.
 - `./mvnw` ne marche pas (dossier `.mvn/wrapper/` absent du repo) : utiliser un Maven installé (`mvn`) ou celui d'IntelliJ.
 
 ## Reprendre le projet avec Claude Code
