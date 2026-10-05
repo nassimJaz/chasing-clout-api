@@ -68,6 +68,21 @@ erDiagram
 - **Achat ≠ ouverture** : acheter crée des `user_booster` non ouverts, l'ouverture est un appel séparé.
 - **Pas d'authentification pour l'instant** : on travaille avec l'utilisateur `demo` (id 1).
 
+## API
+
+Swagger : `http://localhost:8080/swagger-ui.html`. Toutes les réponses sont des DTO (`record` dans `DTO/`), jamais des entités.
+CORS ouvert par `@CrossOrigin` sur les controllers. En cas d'erreur, le JSON contient un champ `message` lisible (« Solde insuffisant »…).
+
+| Méthode | URL | Rôle |
+|---|---|---|
+| GET | `/cards` | Les 300 cartes (`id`, `name`, `imageUrl`, `rarity`) |
+| GET | `/boosters` | Les 3 boosters : `price`, `prices` par format, `slots` avec leurs poids. Mixte = `(prices[A] + prices[B]) / 2` |
+| GET | `/me` | Profil de `demo` (`username`, `memeBalance`) |
+| POST | `/me/purchases` | Achat : `{"format": "DISPLAY_MEDIUM", "boosterTypeId": 1, "secondBoosterTypeId": 2}` (le 2e id est optionnel). 409 si solde insuffisant, 400 si mixte hors Medium/Méga |
+| GET | `/me/boosters` | Boosters non ouverts (`id`, `code`, `name`) |
+| POST | `/me/boosters/{id}/open` | Ouvre : cartes tirées dans l'ordre (`position`, `card`, `finish`). 409 si déjà ouvert ou pas à `demo` |
+| GET | `/me/cards` | Collection : (`card`, `finish`, `quantity`, `firstObtainedAt`) |
+
 ## Avancement
 
 - [x] **Phase 0 — Socle** : `initdb/` monté dans Docker, port configurable, conteneur renommé `chasing_clout_db`, Hibernate en `validate`
@@ -87,14 +102,18 @@ erDiagram
   - `ShopService.price(unitPrice, count)` : `count / 3` boosters à -60 % ; en mixte, appliqué à chaque moitié.
   - `ShopServiceTest` (sans base) : prix des 5 formats et des mixtes. `ShopServiceIntegrationTest` (base requise, rollback) :
     débit et boosters créés, mixte 15 + 15, solde insuffisant (rien n'est acheté), mixte refusé hors Medium/Méga.
-- [ ] **Phase 5 — API REST** : boutique, inventaire, ouverture, collection, profil ; DTO en `record` Java (ne plus renvoyer les entités directement)
+- [x] **Phase 5 — API REST** (voir la section API) : vérifié, `mvn test` passe (21 tests) et l'appli lancée répond (JSON, messages d'erreur, Swagger, images)
+  - `CatalogController` (`/cards`, `/boosters`) et `MeController` (`/me/...`, utilisateur `demo` en dur) ; lectures directement via les DAO, écritures via les services.
+  - `server.error.include-message=always` pour que le front reçoive les messages des `ResponseStatusException`.
+  - `ApiIntegrationTest` (MockMvc, base requise, rollback) : achat → inventaire → ouverture (10 cartes) → 409 à la réouverture → collection ; 409 si solde insuffisant.
 - [ ] **Phase 6 — Front Angular** : Boutique, Inventaire, Ouverture (révélation animée, effets CSS holo/feu), Collection (filtres par rareté) ; retirer les pages Student/Major
-- [ ] **Phase 7 — Finitions** : URL de l'API dans `environment.ts`, CORS, README du front
+- [ ] **Phase 7 — Finitions** : URL de l'API dans `environment.ts`, README du front (CORS déjà fait côté API)
 
 ### Points ouverts
 - Quelques noms du dataset sont douteux pour un projet d'école (ex. « Pedobear ») : à filtrer ou renommer dans `scripts/import_memes.py` si besoin.
 - Les tests `*IntegrationTest` et `BackSkeletonApplicationTests` (contextLoads) ont besoin de la base lancée.
 - Après `AppUserDao.debit` (requête de masse), un `AppUser` déjà chargé dans la même transaction garde l'ancien solde : le relire après un `clear()`.
+- Pas de validation des corps de requête : un `format` ou `boosterTypeId` manquant dans `/me/purchases` donne une 500 (le front envoie toujours les deux).
 - `./mvnw` ne marche pas (dossier `.mvn/wrapper/` absent du repo) : utiliser un Maven installé (`mvn`) ou celui d'IntelliJ.
 
 ## Reprendre le projet avec Claude Code

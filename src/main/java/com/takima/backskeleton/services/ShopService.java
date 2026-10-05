@@ -68,7 +68,7 @@ public class ShopService {
     }
 
     // count boosters at unitPrice, count / 3 of them at -60%.
-    static long price(long unitPrice, int count) {
+    public static long price(long unitPrice, int count) {
         int discounted = count / 3;
         return (count - discounted) * unitPrice + discounted * unitPrice * 40 / 100;
     }
