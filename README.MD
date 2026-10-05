@@ -71,9 +71,7 @@ erDiagram
 ## Avancement
 
 - [x] **Phase 0 — Socle** : `initdb/` monté dans Docker, port configurable, conteneur renommé `chasing_clout_db`, Hibernate en `validate`
-- [ ] **Phase 0 bis — Supprimer l'exemple du squelette** (Student/Major/Course) : tant qu'il est là, l'appli **ne démarre pas** (ses tables n'existent plus).
-      Depuis `chasing-clout-api/` :
-      `rm -r src/main/java/com/takima/backskeleton/{controllers,services,DTO} src/main/java/com/takima/backskeleton/models/{Student,Major,Course}.java src/main/java/com/takima/backskeleton/DAO/{Student,Major,Course}Dao.java`
+- [x] **Phase 0 bis — Supprimer l'exemple du squelette** (Student/Major/Course : modèles, DAO, services, controllers, DTO) : vérifié, `mvn test` (contextLoads) passe sur un Postgres neuf en `validate`
 - [x] **Phase 1 — Import du dataset** : 300 images + `initdb/3_CARDS.sql`
 - [x] **Phase 2 — Schéma, entités JPA, DAO** : vérifié sur un Postgres neuf (scripts OK, contraintes et upsert OK, Spring démarre en `validate`, images servies)
 - [ ] **Phase 3 — `GachaService` (ouverture d'un booster) + tests**
@@ -91,9 +89,11 @@ erDiagram
 ### Points ouverts
 - Quelques noms du dataset sont douteux pour un projet d'école (ex. « Pedobear ») : à filtrer ou renommer dans `scripts/import_memes.py` si besoin.
 - `BackSkeletonApplicationTests` (contextLoads) a besoin de la base lancée.
+- `./mvnw` ne marche pas (dossier `.mvn/wrapper/` absent du repo) : utiliser un Maven installé (`mvn`) ou celui d'IntelliJ.
 
 ## Reprendre le projet avec Claude Code
 - `CLAUDE.md` importe ce README : Claude le lit automatiquement au démarrage d'une session dans ce repo.
-- Plugin conseillé, [Ponytail](https://github.com/DietrichGebert/ponytail) (pousse l'IA à écrire le code le plus simple possible) :
-  `/plugin marketplace add DietrichGebert/ponytail` puis `/plugin install ponytail@ponytail`, et redémarrer la session.
+- Plugin [Ponytail](https://github.com/DietrichGebert/ponytail) (pousse l'IA à écrire le code le plus simple possible) :
+  déclaré dans `.claude/settings.json`, Claude Code propose de l'installer au premier lancement dans ce repo (accepter le
+  marketplace puis le plugin). À défaut : `/plugin marketplace add DietrichGebert/ponytail` puis `/plugin install ponytail@ponytail`.
 - Exemple de prompt : *« Lis le README et attaque la phase 3 »*. À la fin de chaque phase, cocher la case ci-dessus et noter ce qui a été vérifié.
