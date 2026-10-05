@@ -74,13 +74,13 @@ erDiagram
 - [x] **Phase 0 bis — Supprimer l'exemple du squelette** (Student/Major/Course : modèles, DAO, services, controllers, DTO) : vérifié, `mvn test` (contextLoads) passe sur un Postgres neuf en `validate`
 - [x] **Phase 1 — Import du dataset** : 300 images + `initdb/3_CARDS.sql`
 - [x] **Phase 2 — Schéma, entités JPA, DAO** : vérifié sur un Postgres neuf (scripts OK, contraintes et upsert OK, Spring démarre en `validate`, images servies)
-- [ ] **Phase 3 — `GachaService` (ouverture d'un booster) + tests**
-  - Charger les cartes groupées par rareté (300, ça tient en mémoire).
-  - Pour chaque slot (par `position`), `cardCount` fois : rareté = tirage pondéré sur `slot.getWeights()`,
-    carte = tirage uniforme dans cette rareté, finition = tirage pondéré sur `Finish.weight`.
-  - Injecter un `java.util.random.RandomGenerator` (bean) pour pouvoir tester avec une graine fixe.
-  - `open(userId, userBoosterId)` en `@Transactional` : `markOpened(...) == 1` sinon erreur → tirage → `PulledCard` (positions 1..n) → `addOne` par carte.
-  - Tests unitaires : nombre exact de cartes (10 / 10 / 12) et fréquences observées sur ~1M tirages proches des cotes.
+- [x] **Phase 3 — `GachaService` (ouverture d'un booster) + tests** : vérifié, `mvn test` passe (7 tests) sur la base lancée
+  - `GachaService.open(userId, userBoosterId)` : `markOpened` d'abord (sinon `ResponseStatusException` 409),
+    puis pour chaque slot rareté pondérée → carte uniforme dans la rareté → finition pondérée ; `PulledCard` (positions 1..n) + `addOne`.
+  - Bean `RandomGenerator` dans `BackSkeletonApplication` (graine fixe possible en test).
+  - `GachaServiceTest` (sans base) : fréquences sur 1M tirages de `pickWeighted` à ±0,2 % pour (60, 30, 10), (1, 1, 1) et les finitions.
+  - `GachaServiceIntegrationTest` (base requise, rollback) : 10 / 10 / 12 cartes, positions, rareté permise par le slot,
+    collection incrémentée, deuxième ouverture refusée.
 - [ ] **Phase 4 — Boutique (`ShopService`)** : calcul du prix (5 formats + mixte), `debit(...) == 1` sinon « solde insuffisant », `Purchase` + `n` `UserBooster` ; tests des prix
 - [ ] **Phase 5 — API REST** : boutique, inventaire, ouverture, collection, profil ; DTO en `record` Java (ne plus renvoyer les entités directement)
 - [ ] **Phase 6 — Front Angular** : Boutique, Inventaire, Ouverture (révélation animée, effets CSS holo/feu), Collection (filtres par rareté) ; retirer les pages Student/Major
@@ -88,7 +88,7 @@ erDiagram
 
 ### Points ouverts
 - Quelques noms du dataset sont douteux pour un projet d'école (ex. « Pedobear ») : à filtrer ou renommer dans `scripts/import_memes.py` si besoin.
-- `BackSkeletonApplicationTests` (contextLoads) a besoin de la base lancée.
+- `BackSkeletonApplicationTests` (contextLoads) et `GachaServiceIntegrationTest` ont besoin de la base lancée.
 - `./mvnw` ne marche pas (dossier `.mvn/wrapper/` absent du repo) : utiliser un Maven installé (`mvn`) ou celui d'IntelliJ.
 
 ## Reprendre le projet avec Claude Code
