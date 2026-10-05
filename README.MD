@@ -1,11 +1,99 @@
-# Your backend API
+# Chasing Clout — API
 
-## Set up 
+Jeu de cartes à collectionner (TCG) basé sur les 300 mèmes du dataset
+[not-lain/meme-dataset](https://huggingface.co/datasets/not-lain/meme-dataset).
+Back : Java 17, Spring Boot 3.1, JPA/Hibernate 6, PostgreSQL. Front : Angular 17 (repo `chasing-clout-front`).
+
+## Set up
 1. Copie-colle le `.env.sample` en `.env`
-2. Remplis le fichier `.env` avec les credentials de ton choix
-3. Fait un `docker compose up`
+2. Remplis le fichier `.env` avec les credentials de ton choix (`DATABASE_PORT=5432` par défaut ; change-le si un autre Postgres utilise déjà ce port)
+3. Fais un `docker compose up -d` : crée la base et exécute `initdb/*.sql` (tables, boosters, 300 cartes, utilisateur `demo`)
+   - Les scripts ne tournent **que sur un volume vide**. Après une modif SQL : `docker compose down -v` puis `docker compose up -d`
 4. Rajoute le plugin : [env-file](https://plugins.jetbrains.com/plugin/7861-envfile)
 5. Ajoute ton fichier `.env` comme ci-dessous (n'oublie pas d'activer les fichiers cachés)
 <img src="img-readme/img.png">
 <img src="img-readme/img_1.png">
 <img src="img-readme/img_2.png">
+
+6. Lance `BackSkeletonApplication`. Les images des cartes sont servies sur `http://localhost:8080/memes/<slug>.jpg`
+
+## Modèle de données
+
+Le schéma est écrit en SQL dans `initdb/` ; Hibernate est en `ddl-auto=validate` : il ne crée rien, il vérifie au
+démarrage que les entités (`models/`) correspondent aux tables. Les noms de tables/colonnes viennent de la naming
+strategy de Spring Boot (`AppUser` → `app_user`, `memeBalance` → `meme_balance`), d'où l'absence de `@Table`/`@Column`.
+
+```mermaid
+erDiagram
+    app_user ||--o{ purchase : "achète"
+    app_user ||--o{ user_booster : "possède"
+    app_user ||--o{ user_card : "collectionne"
+    booster_type ||--|{ booster_slot : "contient"
+    booster_slot ||--|{ booster_slot_odds : "cotes"
+    booster_type ||--o{ user_booster : ""
+    purchase ||--o{ user_booster : "a produit"
+    user_booster ||--o{ pulled_card : "a donné"
+    meme_card ||--o{ pulled_card : ""
+    meme_card ||--o{ user_card : ""
+```
+
+| Table | Rôle |
+|---|---|
+| `app_user` | Joueur et son solde de *memes* (`CHECK >= 0`) |
+| `meme_card` | Les 300 cartes ; chacune a une rareté **fixe** |
+| `booster_type` | BASIC (100), SPECIAL (250), COLLECTION (500) |
+| `booster_slot` / `booster_slot_odds` | Slots d'un booster (nb de cartes) et poids de chaque rareté |
+| `purchase` | Une commande en boutique (format, prix total) |
+| `user_booster` | Inventaire de boosters ; `opened_at` null = pas encore ouvert |
+| `pulled_card` | Historique : chaque carte tirée, avec sa finition et sa position |
+| `user_card` | Collection : une ligne par (joueur, carte, finition) avec une quantité |
+
+## Choix de conception
+- **Rareté sur la carte, finition sur le tirage.** Les 300 mèmes sont répartis 100 Commun / 75 Peu commun / 55 Rare /
+  40 Très rare / 20 Ultra rare / 10 Secrète (mélange à graine fixe, voir `scripts/import_memes.py`). La finition
+  (Normale 94 %, Holo 5 %, Enflammée 1 %) est tirée pour chaque carte, cf. l'enum `Finish`.
+- **Cotes en poids relatifs**, pas en pourcentages : `(60, 30, 10)`, et `(1, 1, 1)` pour les 33,33 % du Booster Collection.
+- **La concurrence est gérée par la base**, via 3 requêtes atomiques :
+  `AppUserDao.debit` (pas de solde négatif), `UserBoosterDao.markOpened` (un booster ne s'ouvre qu'une fois),
+  `UserCardDao.addOne` (upsert de la collection). Toujours passer par elles.
+- **Images en statique** dans `src/main/resources/static/memes/` : les URLs du dataset Hugging Face expirent.
+  `scripts/import_memes.py` (Python stdlib) régénère les images et `initdb/3_CARDS.sql` ; ne pas éditer ce fichier à la main.
+- **Prix et économie** (valeurs de départ, modifiables dans `2_DEFAULT_ENTRIES.sql`) : Basic 100, Spécial 250,
+  Collection 500 ; l'utilisateur `demo` démarre avec 5000 memes.
+
+### Règles décidées pour la suite
+- **Remise** : sur `n` boosters, `n / 3` (division entière) sont à -60 %, soit `prix × 40 / 100` (les prix sont multiples de 5, donc ça tombe juste).
+- **Mixte 50/50** : seulement pour Display Medium (15 + 15, 5 remisés par type) et Display Méga (30 + 30, 10 par type) ;
+  1, 3 et 9 boosters ne se coupent pas en deux moitiés égales.
+- **Achat ≠ ouverture** : acheter crée des `user_booster` non ouverts, l'ouverture est un appel séparé.
+- **Pas d'authentification pour l'instant** : on travaille avec l'utilisateur `demo` (id 1).
+
+## Avancement
+
+- [x] **Phase 0 — Socle** : `initdb/` monté dans Docker, port configurable, conteneur renommé `chasing_clout_db`, Hibernate en `validate`
+- [ ] **Phase 0 bis — Supprimer l'exemple du squelette** (Student/Major/Course) : tant qu'il est là, l'appli **ne démarre pas** (ses tables n'existent plus).
+      Depuis `chasing-clout-api/` :
+      `rm -r src/main/java/com/takima/backskeleton/{controllers,services,DTO} src/main/java/com/takima/backskeleton/models/{Student,Major,Course}.java src/main/java/com/takima/backskeleton/DAO/{Student,Major,Course}Dao.java`
+- [x] **Phase 1 — Import du dataset** : 300 images + `initdb/3_CARDS.sql`
+- [x] **Phase 2 — Schéma, entités JPA, DAO** : vérifié sur un Postgres neuf (scripts OK, contraintes et upsert OK, Spring démarre en `validate`, images servies)
+- [ ] **Phase 3 — `GachaService` (ouverture d'un booster) + tests**
+  - Charger les cartes groupées par rareté (300, ça tient en mémoire).
+  - Pour chaque slot (par `position`), `cardCount` fois : rareté = tirage pondéré sur `slot.getWeights()`,
+    carte = tirage uniforme dans cette rareté, finition = tirage pondéré sur `Finish.weight`.
+  - Injecter un `java.util.random.RandomGenerator` (bean) pour pouvoir tester avec une graine fixe.
+  - `open(userId, userBoosterId)` en `@Transactional` : `markOpened(...) == 1` sinon erreur → tirage → `PulledCard` (positions 1..n) → `addOne` par carte.
+  - Tests unitaires : nombre exact de cartes (10 / 10 / 12) et fréquences observées sur ~1M tirages proches des cotes.
+- [ ] **Phase 4 — Boutique (`ShopService`)** : calcul du prix (5 formats + mixte), `debit(...) == 1` sinon « solde insuffisant », `Purchase` + `n` `UserBooster` ; tests des prix
+- [ ] **Phase 5 — API REST** : boutique, inventaire, ouverture, collection, profil ; DTO en `record` Java (ne plus renvoyer les entités directement)
+- [ ] **Phase 6 — Front Angular** : Boutique, Inventaire, Ouverture (révélation animée, effets CSS holo/feu), Collection (filtres par rareté) ; retirer les pages Student/Major
+- [ ] **Phase 7 — Finitions** : URL de l'API dans `environment.ts`, CORS, README du front
+
+### Points ouverts
+- Quelques noms du dataset sont douteux pour un projet d'école (ex. « Pedobear ») : à filtrer ou renommer dans `scripts/import_memes.py` si besoin.
+- `BackSkeletonApplicationTests` (contextLoads) a besoin de la base lancée.
+
+## Reprendre le projet avec Claude Code
+- `CLAUDE.md` importe ce README : Claude le lit automatiquement au démarrage d'une session dans ce repo.
+- Plugin conseillé, [Ponytail](https://github.com/DietrichGebert/ponytail) (pousse l'IA à écrire le code le plus simple possible) :
+  `/plugin marketplace add DietrichGebert/ponytail` puis `/plugin install ponytail@ponytail`, et redémarrer la session.
+- Exemple de prompt : *« Lis le README et attaque la phase 3 »*. À la fin de chaque phase, cocher la case ci-dessus et noter ce qui a été vérifié.
