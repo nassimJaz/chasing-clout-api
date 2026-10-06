@@ -35,11 +35,13 @@ erDiagram
     user_booster ||--o{ pulled_card : "a donné"
     meme_card ||--o{ pulled_card : ""
     meme_card ||--o{ user_card : ""
+    app_user ||--o{ card_listing : "vend / achète"
+    meme_card ||--o{ card_listing : ""
 ```
 
 | Table | Rôle |
 |---|---|
-| `app_user` | Joueur et son solde de *memes* (`CHECK >= 0`) |
+| `app_user` | Joueur, son solde de *memes* (`CHECK >= 0`) et `last_free_booster_claim` (cooldown du booster gratuit) |
 | `meme_card` | Les 300 cartes ; chacune a une rareté **fixe** |
 | `booster_type` | BASIC (100), SPECIAL (250), COLLECTION (500) |
 | `booster_slot` / `booster_slot_odds` | Slots d'un booster (nb de cartes) et poids de chaque rareté |
@@ -47,6 +49,7 @@ erDiagram
 | `user_booster` | Inventaire de boosters ; `opened_at` null = pas encore ouvert |
 | `pulled_card` | Historique : chaque carte tirée, avec sa finition et sa position |
 | `user_card` | Collection : une ligne par (joueur, carte, finition) avec une quantité |
+| `card_listing` | Marketplace P2P : annonce ACTIVE / SOLD / CANCELLED ; les lignes SOLD sont l'historique des ventes |
 
 ## Choix de conception
 - **Rareté sur la carte, finition sur le tirage.** Les 300 mèmes sont répartis 100 Commun / 75 Peu commun / 55 Rare /
@@ -66,7 +69,25 @@ erDiagram
 - **Mixte 50/50** : seulement pour Display Medium (15 + 15, 5 remisés par type) et Display Méga (30 + 30, 10 par type) ;
   1, 3 et 9 boosters ne se coupent pas en deux moitiés égales.
 - **Achat ≠ ouverture** : acheter crée des `user_booster` non ouverts, l'ouverture est un appel séparé.
-- **Pas d'authentification pour l'instant** : on travaille avec l'utilisateur `demo` (id 1).
+- **Pas d'authentification pour l'instant** : le joueur courant vient du header `X-User-Id` (défaut `demo`, id 1 ; `rival` = id 2
+  sur une base neuve). N'importe qui peut le changer : à remplacer par une vraie session/JWT.
+
+### Marketplace (phase 8)
+- **« Effet » = finition.** Une carte vendue est un couple (carte, finition). Prix algorithmique =
+  `Rarity.price` (5 / 10 / 25 / 60 / 150 / 400) × `Finish.priceMultiplier` (Normale ×1, Holo ×4, Enflammée ×15).
+- **Prix de base indexé sur le P2P** (`MarketService.basePrice`) : avec au moins 3 ventes, sur les 10 dernières,
+  `prix = algo + 30 % × (95 % × moyenne − algo)`. Le lissage (30 %) et la marge (5 %) gardent le prix **sous la moyenne** ;
+  un marché qui baisse ne le fait jamais passer sous le prix algorithmique.
+- **Temps réel, pas de worker** : le prix est calculé à la lecture (requête indexée sur ≤ 10 lignes), donc toujours à jour
+  et rien à synchroniser. Un worker/cache ne deviendrait utile qu'avec beaucoup de trafic.
+- **Achat simultané d'une même annonce** : `CardListingDao.markSold` (`UPDATE … WHERE status = 'ACTIVE'`) ne réussit que pour
+  un acheteur ; l'autre attend le verrou de ligne puis voit SOLD (409). Débit, crédit et carte sont dans la même transaction :
+  si le débit échoue, tout est annulé et l'annonce redevient ACTIVE. Les deux soldes sont verrouillés dans l'ordre des id
+  (pas de deadlock si A achète à B pendant que B achète à A).
+- **Séquestre** : une carte mise en vente sort de la collection (`UserCardDao.removeOne`, atomique) et revient si on annule.
+- **Booster gratuit toutes les 30 min** : `AppUserDao.claimFreeBooster` compare `last_free_booster_claim` à l'horloge
+  **de la base** (`now()`), jamais à celle du client, dans un seul `UPDATE` : des requêtes rejouées ou simultanées font
+  la queue sur le verrou de ligne et une seule passe (les autres : 429). Le booster obtenu s'ouvre par la route habituelle.
 
 ## API
 
@@ -77,11 +98,20 @@ CORS ouvert par `@CrossOrigin` sur les controllers. En cas d'erreur, le JSON con
 |---|---|---|
 | GET | `/cards` | Les 300 cartes (`id`, `name`, `imageUrl`, `rarity`) |
 | GET | `/boosters` | Les 3 boosters : `price`, `prices` par format, `slots` avec leurs poids. Mixte = `(prices[A] + prices[B]) / 2` |
-| GET | `/me` | Profil de `demo` (`username`, `memeBalance`) |
+| GET | `/me` | Profil du joueur (`username`, `memeBalance`, `nextFreeBoosterAt`) |
 | POST | `/me/purchases` | Achat : `{"format": "DISPLAY_MEDIUM", "boosterTypeId": 1, "secondBoosterTypeId": 2}` (le 2e id est optionnel). 409 si solde insuffisant, 400 si mixte hors Medium/Méga |
 | GET | `/me/boosters` | Boosters non ouverts (`id`, `code`, `name`) |
-| POST | `/me/boosters/{id}/open` | Ouvre : cartes tirées dans l'ordre (`position`, `card`, `finish`). 409 si déjà ouvert ou pas à `demo` |
+| POST | `/me/boosters/{id}/open` | Ouvre : cartes tirées dans l'ordre (`position`, `card`, `finish`). 409 si déjà ouvert ou pas au joueur |
 | GET | `/me/cards` | Collection : (`card`, `finish`, `quantity`, `firstObtainedAt`) |
+| POST | `/me/free-booster` | Booster Basic gratuit (non ouvert). 429 si le dernier date de moins de 30 min ; `GET /me` donne `nextFreeBoosterAt` |
+| GET | `/market/prices/{cardId}` | Prix de base système de la carte pour chaque finition |
+| POST | `/market/system-purchases` | Achat d'une carte au système : `{"memeCardId": 1, "finish": "HOLO"}` → prix payé. 409 si solde insuffisant |
+| GET | `/market/listings` | Annonces actives, moins chères d'abord (`card`, `finish`, `price`, `seller`) |
+| POST | `/market/listings` | Mettre en vente : `{"memeCardId": 1, "finish": "NORMAL", "price": 300}`. 409 si la carte n'est pas possédée |
+| DELETE | `/market/listings/{id}` | Retirer son annonce (la carte revient). 409 si déjà vendue ou pas à soi |
+| POST | `/market/listings/{id}/purchase` | Acheter une annonce. 409 si déjà vendue, à soi, ou solde insuffisant |
+
+Toutes les routes `/me/...` et `/market/...` qui agissent pour un joueur lisent le header `X-User-Id` (défaut 1).
 
 ## Avancement
 
@@ -114,10 +144,42 @@ CORS ouvert par `@CrossOrigin` sur les controllers. En cas d'erreur, le JSON con
   - Les composants n'importent pas `theme.scss` (ça embarque tout le CSS Material, budget prod dépassé) : couleurs en variables `--cc-purple` / `--cc-red` dans `styles.scss`.
 - [x] **Phase 7 — Finitions** : URL de l'API dans `environment.ts`, CORS via `@CrossOrigin`, README du front (lancement, pages, organisation du code, pièges)
 
+- [x] **Phase 8 — Marketplace** (voir « Marketplace » dans les choix de conception) : vérifié, `mvn test` passe (34 tests),
+  scripts `initdb/` rejoués sur un Postgres vide
+  - `initdb/4_MARKETPLACE.sql` : `card_listing`, `app_user.last_free_booster_claim`, joueur `rival`. Sur une base existante :
+    `docker exec -i chasing_clout_db psql -U root -d mydb < initdb/4_MARKETPLACE.sql` (sinon `docker compose down -v`).
+  - `MarketService` (prix, achat système, annonces, achat P2P), `ShopService.claimFreeBooster`, `MarketController`, header `X-User-Id`.
+  - `MarketServiceTest` (formule de prix), `MarketServiceIntegrationTest` (parcours, rollback), `MarketConcurrencyTest`
+    (vrais threads, données commitées puis supprimées : 2 acheteurs → 1 seul gagne ; paiement refusé → annonce remise en vente ;
+    5 réclamations simultanées → 1 seul booster). Les tests créent leurs propres joueurs au lieu d'utiliser `demo`.
+  - Non fait : front de la marketplace (phase 9), authentification réelle, baisse du prix sous le prix algorithmique.
+- [ ] **Phase 9 — Front de la marketplace** (repo `chasing-clout-front`, toutes les routes existent déjà côté API)
+  - **Modèles** (`models/game.model.ts`) : `nextFreeBoosterAt: string | null` dans `Profile` ; nouveaux types
+    `Listing` (`id`, `card`, `finish`, `price`, `status`, `seller`, `createdAt`) et `CardPrice` (`memeCardId`, `finish`, `price`).
+  - **`GameService`** : `prices(cardId)`, `buyFromSystem(cardId, finish)`, `listings()`, `createListing(cardId, finish, price)`,
+    `cancelListing(id)`, `buyListing(id)`, `claimFreeBooster()`. Appeler `refreshProfile()` après chaque appel qui change le solde.
+  - **Choix du joueur** (`X-User-Id`) : un sélecteur `demo` / `rival` dans la navbar, gardé en `localStorage`, et un
+    `HttpInterceptor` qui ajoute le header à toutes les requêtes. Indispensable pour tester l'achat entre deux joueurs.
+  - **Booster gratuit** (navbar) : bouton « Booster gratuit » actif si `nextFreeBoosterAt` est null ou passé, sinon compte à
+    rebours. Le compte à rebours n'est qu'un affichage, c'est l'API qui décide (429 si trop tôt, afficher son `message`).
+    En cas de succès, aller sur `/ouverture/:id` avec l'id du booster reçu.
+  - **Nouvelle page `/marche`** : les annonces actives (`GET /market/listings`, réutiliser `meme-card`) avec prix, vendeur et le
+    prix système pour comparer (`GET /market/prices/{cardId}`). Bouton « Acheter », masqué sur ses propres annonces
+    (`seller === profile.username`), « Retirer » à la place. Après un achat ou un retrait, recharger la liste et le solde.
+    Une 409 veut dire « déjà vendue / solde insuffisant » : afficher le `message` (fonction `apiError` existante).
+  - **Collection** : sur une carte possédée, bouton « Vendre » avec un champ prix (pré-rempli avec le prix système de cette
+    finition) → `POST /market/listings`, la carte disparaît de la collection tant qu'elle est en vente. Sur toutes les cartes,
+    « Acheter au système » avec le prix de chaque finition.
+  - **Routing / module** : route `marche` (resolver `listings`), lien « Marché » dans la navbar, déclarer les nouveaux composants
+    dans `app.module.ts`. Garder les couleurs en variables CSS (pas de `@use "theme"` dans un composant, cf. README du front).
+  - Pas encore d'endpoint pour l'historique de ses ventes / achats ni pour « mes annonces » (on filtre `GET /market/listings`
+    par vendeur) : à ajouter côté API si le front en a besoin.
+
 ### Points ouverts
 - Quelques noms du dataset sont douteux pour un projet d'école (ex. « Pedobear ») : à filtrer ou renommer dans `scripts/import_memes.py` si besoin.
 - Les tests `*IntegrationTest` et `BackSkeletonApplicationTests` (contextLoads) ont besoin de la base lancée.
-- Après `AppUserDao.debit` (requête de masse), un `AppUser` déjà chargé dans la même transaction garde l'ancien solde : le relire après un `clear()`.
+- Après `AppUserDao.debit`/`credit` (requêtes de masse), un `AppUser` déjà chargé dans la même transaction garde l'ancien solde : le relire après un `clear()`.
+  `markSold`, `markCancelled` et `claimFreeBooster` vident déjà le cache JPA (`clearAutomatically`).
 - Pas de validation des corps de requête : un `format` ou `boosterTypeId` manquant dans `/me/purchases` donne une 500 (le front envoie toujours les deux).
 - `./mvnw` ne marche pas (dossier `.mvn/wrapper/` absent du repo) : utiliser un Maven installé (`mvn`) ou celui d'IntelliJ.
 

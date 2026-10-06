@@ -19,4 +19,22 @@ public interface UserCardDao extends JpaRepository<UserCard, Long> {
             ON CONFLICT (user_id, meme_card_id, finish) DO UPDATE SET quantity = user_card.quantity + 1
             """, nativeQuery = true)
     void addOne(Long userId, Long memeCardId, String finish);
+
+    // Atomic: takes one copy out of the collection (decrement, or delete the last one); false if the user has none.
+    default boolean removeOne(Long userId, Long memeCardId, String finish) {
+        return decrementIfSeveral(userId, memeCardId, finish) == 1 || deleteIfLast(userId, memeCardId, finish) == 1;
+    }
+
+    @Modifying
+    @Query(value = """
+            UPDATE user_card SET quantity = quantity - 1
+            WHERE user_id = :userId AND meme_card_id = :memeCardId AND finish = :finish AND quantity > 1
+            """, nativeQuery = true)
+    int decrementIfSeveral(Long userId, Long memeCardId, String finish);
+
+    @Modifying
+    @Query(value = """
+            DELETE FROM user_card WHERE user_id = :userId AND meme_card_id = :memeCardId AND finish = :finish AND quantity = 1
+            """, nativeQuery = true)
+    int deleteIfLast(Long userId, Long memeCardId, String finish);
 }

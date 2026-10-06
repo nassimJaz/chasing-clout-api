@@ -14,11 +14,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class ShopService {
+    public static final Duration FREE_BOOSTER_COOLDOWN = Duration.ofMinutes(30);
+
     private final AppUserDao appUserDao;
     private final BoosterTypeDao boosterTypeDao;
     private final PurchaseDao purchaseDao;
@@ -65,6 +68,17 @@ public class ShopService {
         Purchase purchase = purchaseDao.save(new Purchase(user, format, total));
         userBoosterDao.saveAll(boosters.stream().map(type -> new UserBooster(user, type, purchase)).toList());
         return purchase;
+    }
+
+    // A free Basic booster (unopened), at most one per FREE_BOOSTER_COOLDOWN. The check uses the database clock and
+    // the row lock (AppUserDao.claimFreeBooster), so neither the client's clock nor replayed requests matter.
+    @Transactional
+    public UserBooster claimFreeBooster(Long userId) {
+        if (appUserDao.claimFreeBooster(userId, (int) FREE_BOOSTER_COOLDOWN.toMinutes()) != 1) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Booster gratuit déjà réclamé, réessaie plus tard");
+        }
+        BoosterType basic = boosterTypeDao.findByCode("BASIC").orElseThrow();
+        return userBoosterDao.save(new UserBooster(appUserDao.getReferenceById(userId), basic, null));
     }
 
     // count boosters at unitPrice, count / 3 of them at -60%.

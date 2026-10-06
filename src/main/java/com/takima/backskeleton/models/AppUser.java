@@ -17,6 +17,8 @@ public class AppUser {
     // Only change it through AppUserDao.debit, which can't go below zero.
     private long memeBalance;
     private Instant createdAt = Instant.now();
+    // Only set through AppUserDao.claimFreeBooster, which checks the cooldown.
+    private Instant lastFreeBoosterClaim;
 
     protected AppUser() {
     }
@@ -40,5 +42,9 @@ public class AppUser {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getLastFreeBoosterClaim() {
+        return lastFreeBoosterClaim;
     }
 }
