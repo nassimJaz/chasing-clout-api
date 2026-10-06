@@ -25,7 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.Arrays;
 import java.util.List;
 
-// System shop of single cards and P2P listings. The current player comes from the X-User-Id header (see MeController).
+// System buyback of single cards and P2P listings. The current player comes from the X-User-Id header (see MeController).
 @CrossOrigin
 @RequestMapping("market")
 @RestController
@@ -40,21 +40,22 @@ public class MarketController {
         this.cardListingDao = cardListingDao;
     }
 
-    // System price of the card in each finish.
+    // System price of the card in each finish, and what the system pays to buy it back.
     @GetMapping("prices/{memeCardId}")
     public List<CardPriceDto> prices(@PathVariable Long memeCardId) {
         MemeCard card = memeCardDao.findById(memeCardId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Carte inconnue"));
         return Arrays.stream(Finish.values())
-                .map(f -> new CardPriceDto(memeCardId, f, marketService.basePrice(card, f)))
+                .map(f -> new CardPriceDto(memeCardId, f, marketService.basePrice(card, f),
+                        marketService.buyback(card, f)))
                 .toList();
     }
 
-    @PostMapping("system-purchases")
-    public CardPriceDto buyFromSystem(@RequestHeader(value = MeController.USER, defaultValue = "1") Long userId,
-                                      @RequestBody CardRequest request) {
-        long paid = marketService.buyFromSystem(userId, request.memeCardId(), request.finish());
-        return new CardPriceDto(request.memeCardId(), request.finish(), paid);
+    // Sells one copy to the system; returns the amount credited.
+    @PostMapping("system-sales")
+    public long sellToSystem(@RequestHeader(value = MeController.USER, defaultValue = "1") Long userId,
+                             @RequestBody CardRequest request) {
+        return marketService.sellToSystem(userId, request.memeCardId(), request.finish());
     }
 
     // Cards on sale, cheapest first.

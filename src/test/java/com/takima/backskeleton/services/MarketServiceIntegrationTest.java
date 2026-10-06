@@ -89,11 +89,9 @@ class MarketServiceIntegrationTest {
     }
 
     @Test
-    void systemSellsAtTheBasePriceWhichFollowsTheP2PSales() {
+    void basePriceFollowsTheP2PSales() {
         // Common Holo: 5 x 4 = 20 memes until it is regularly sold
-        assertEquals(20, marketService.buyFromSystem(buyer, common.getId(), Finish.HOLO));
-        entityManager.clear();
-        assertEquals(980, balance(buyer));
+        assertEquals(20, marketService.basePrice(common, Finish.HOLO));
 
         for (int i = 0; i < MarketService.MIN_SALES; i++) {
             userCardDao.addOne(seller, common.getId(), "HOLO");
@@ -102,6 +100,24 @@ class MarketServiceIntegrationTest {
 
         // 20 + 30% x (95% x 200 - 20): raised, but under the 200 the players pay
         assertEquals(71, marketService.basePrice(common, Finish.HOLO));
+        assertEquals(35, marketService.buyback(common, Finish.HOLO));
+    }
+
+    @Test
+    void systemBuysBackAtHalfThePrice() {
+        userCardDao.addOne(seller, common.getId(), "NORMAL");
+        long buyback = marketService.buyback(common, Finish.NORMAL);
+
+        assertEquals(buyback, marketService.sellToSystem(seller, common.getId(), Finish.NORMAL));
+
+        entityManager.clear();
+        assertEquals(1000 + buyback, balance(seller));
+        assertEquals(0, quantity(seller));
+        // no copy left: refused and nothing credited
+        assertThrows(ResponseStatusException.class,
+                () -> marketService.sellToSystem(seller, common.getId(), Finish.NORMAL));
+        entityManager.clear();
+        assertEquals(1000 + buyback, balance(seller));
     }
 
     @Test

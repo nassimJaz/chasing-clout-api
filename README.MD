@@ -78,6 +78,8 @@ erDiagram
 - **Prix de base indexé sur le P2P** (`MarketService.basePrice`) : avec au moins 3 ventes, sur les 10 dernières,
   `prix = algo + 30 % × (95 % × moyenne − algo)`. Le lissage (30 %) et la marge (5 %) gardent le prix **sous la moyenne** ;
   un marché qui baisse ne le fait jamais passer sous le prix algorithmique.
+- **Le système rachète, il ne vend pas** : `MarketService.sellToSystem` retire une carte de la collection (`removeOne`, atomique)
+  et crédite `buyback = max(1, 50 % × prix de base)`. Pour acheter une carte précise, il faut passer par une annonce P2P.
 - **Temps réel, pas de worker** : le prix est calculé à la lecture (requête indexée sur ≤ 10 lignes), donc toujours à jour
   et rien à synchroniser. Un worker/cache ne deviendrait utile qu'avec beaucoup de trafic.
 - **Achat simultané d'une même annonce** : `CardListingDao.markSold` (`UPDATE … WHERE status = 'ACTIVE'`) ne réussit que pour
@@ -104,8 +106,8 @@ CORS ouvert par `@CrossOrigin` sur les controllers. En cas d'erreur, le JSON con
 | POST | `/me/boosters/{id}/open` | Ouvre : cartes tirées dans l'ordre (`position`, `card`, `finish`). 409 si déjà ouvert ou pas au joueur |
 | GET | `/me/cards` | Collection : (`card`, `finish`, `quantity`, `firstObtainedAt`) |
 | POST | `/me/free-booster` | Booster Basic gratuit (non ouvert). 429 si le dernier date de moins de 30 min ; `GET /me` donne `nextFreeBoosterAt` |
-| GET | `/market/prices/{cardId}` | Prix de base système de la carte pour chaque finition |
-| POST | `/market/system-purchases` | Achat d'une carte au système : `{"memeCardId": 1, "finish": "HOLO"}` → prix payé. 409 si solde insuffisant |
+| GET | `/market/prices/{cardId}` | Pour chaque finition : prix de base système (`price`) et prix de rachat (`buyback`) |
+| POST | `/market/system-sales` | Vente d'une carte au système : `{"memeCardId": 1, "finish": "HOLO"}` → montant crédité. 409 si la carte n'est pas possédée |
 | GET | `/market/listings` | Annonces actives, moins chères d'abord (`card`, `finish`, `price`, `seller`) |
 | POST | `/market/listings` | Mettre en vente : `{"memeCardId": 1, "finish": "NORMAL", "price": 300}`. 409 si la carte n'est pas possédée |
 | DELETE | `/market/listings/{id}` | Retirer son annonce (la carte revient). 409 si déjà vendue ou pas à soi |
@@ -148,15 +150,15 @@ Toutes les routes `/me/...` et `/market/...` qui agissent pour un joueur lisent 
   scripts `initdb/` rejoués sur un Postgres vide
   - `initdb/4_MARKETPLACE.sql` : `card_listing`, `app_user.last_free_booster_claim`, joueur `rival`. Sur une base existante :
     `docker exec -i chasing_clout_db psql -U root -d <DATABASE_NAME du .env> -v ON_ERROR_STOP=1 --single-transaction < initdb/4_MARKETPLACE.sql` (sinon `docker compose down -v`).
-  - `MarketService` (prix, achat système, annonces, achat P2P), `ShopService.claimFreeBooster`, `MarketController`, header `X-User-Id`.
+  - `MarketService` (prix, rachat par le système, annonces, achat P2P), `ShopService.claimFreeBooster`, `MarketController`, header `X-User-Id`.
   - `MarketServiceTest` (formule de prix), `MarketServiceIntegrationTest` (parcours, rollback), `MarketConcurrencyTest`
     (vrais threads, données commitées puis supprimées : 2 acheteurs → 1 seul gagne ; paiement refusé → annonce remise en vente ;
     5 réclamations simultanées → 1 seul booster). Les tests créent leurs propres joueurs au lieu d'utiliser `demo`.
   - Non fait : front de la marketplace (phase 9), authentification réelle, baisse du prix sous le prix algorithmique.
 - [ ] **Phase 9 — Front de la marketplace** (repo `chasing-clout-front`, toutes les routes existent déjà côté API)
   - **Modèles** (`models/game.model.ts`) : `nextFreeBoosterAt: string | null` dans `Profile` ; nouveaux types
-    `Listing` (`id`, `card`, `finish`, `price`, `status`, `seller`, `createdAt`) et `CardPrice` (`memeCardId`, `finish`, `price`).
-  - **`GameService`** : `prices(cardId)`, `buyFromSystem(cardId, finish)`, `listings()`, `createListing(cardId, finish, price)`,
+    `Listing` (`id`, `card`, `finish`, `price`, `status`, `seller`, `createdAt`) et `CardPrice` (`memeCardId`, `finish`, `price`, `buyback`).
+  - **`GameService`** : `prices(cardId)`, `sellToSystem(cardId, finish)`, `listings()`, `createListing(cardId, finish, price)`,
     `cancelListing(id)`, `buyListing(id)`, `claimFreeBooster()`. Appeler `refreshProfile()` après chaque appel qui change le solde.
   - **Choix du joueur** (`X-User-Id`) : un sélecteur `demo` / `rival` dans la navbar, gardé en `localStorage`, et un
     `HttpInterceptor` qui ajoute le header à toutes les requêtes. Indispensable pour tester l'achat entre deux joueurs.
@@ -168,8 +170,8 @@ Toutes les routes `/me/...` et `/market/...` qui agissent pour un joueur lisent 
     (`seller === profile.username`), « Retirer » à la place. Après un achat ou un retrait, recharger la liste et le solde.
     Une 409 veut dire « déjà vendue / solde insuffisant » : afficher le `message` (fonction `apiError` existante).
   - **Collection** : sur une carte possédée, bouton « Vendre » avec un champ prix (pré-rempli avec le prix système de cette
-    finition) → `POST /market/listings`, la carte disparaît de la collection tant qu'elle est en vente. Sur toutes les cartes,
-    « Acheter au système » avec le prix de chaque finition.
+    finition) → `POST /market/listings`, la carte disparaît de la collection tant qu'elle est en vente. Sur une carte possédée,
+    « Vendre au système » avec le prix de rachat (`buyback`) de chaque finition → `POST /market/system-sales`.
   - **Routing / module** : route `marche` (resolver `listings`), lien « Marché » dans la navbar, déclarer les nouveaux composants
     dans `app.module.ts`. Garder les couleurs en variables CSS (pas de `@use "theme"` dans un composant, cf. README du front).
   - Pas encore d'endpoint pour l'historique de ses ventes / achats ni pour « mes annonces » (on filtre `GET /market/listings`

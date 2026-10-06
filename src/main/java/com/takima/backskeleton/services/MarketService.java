@@ -22,6 +22,8 @@ public class MarketService {
     static final int MIN_SALES = 3;
     // ponytail: "recent" = the last 10 sales, whatever their age; add a time window if old sales skew prices.
     static final int RECENT_SALES = 10;
+    // The system buys cards back at half their base price, and never sells any.
+    static final double BUYBACK_RATE = 0.5;
 
     private final AppUserDao appUserDao;
     private final MemeCardDao memeCardDao;
@@ -53,13 +55,19 @@ public class MarketService {
         return algoPrice + Math.max(0, (long) (0.30 * (target - algoPrice)));
     }
 
-    // Buys one card from the system at its base price; returns the price paid.
+    public long buyback(MemeCard card, Finish finish) {
+        return Math.max(1, (long) (basePrice(card, finish) * BUYBACK_RATE));
+    }
+
+    // Sells one copy to the system at the buyback price; returns the amount credited.
     @Transactional
-    public long buyFromSystem(Long userId, Long memeCardId, Finish finish) {
-        long price = basePrice(findCard(memeCardId, finish), finish);
-        debit(userId, price);
-        userCardDao.addOne(userId, memeCardId, finish.name());
-        return price;
+    public long sellToSystem(Long userId, Long memeCardId, Finish finish) {
+        long amount = buyback(findCard(memeCardId, finish), finish);
+        if (!userCardDao.removeOne(userId, memeCardId, finish.name())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu ne possèdes pas cette carte");
+        }
+        appUserDao.credit(userId, amount);
+        return amount;
     }
 
     // Puts one copy on sale: it leaves the seller's collection until it is sold or the listing cancelled.
