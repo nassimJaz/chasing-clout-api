@@ -188,4 +188,9 @@ Toutes les routes `/me/...` et `/market/...` qui agissent pour un joueur lisent 
 - Plugin [Ponytail](https://github.com/DietrichGebert/ponytail) (pousse l'IA à écrire le code le plus simple possible) :
   déclaré dans `.claude/settings.json`, Claude Code propose de l'installer au premier lancement dans ce repo (accepter le
   marketplace puis le plugin). À défaut : `/plugin marketplace add DietrichGebert/ponytail` puis `/plugin install ponytail@ponytail`.
+- Plugin [Superpowers](https://github.com/obra/superpowers) (TDD, débogage méthodique, vérification avant de dire « fini ») :
+  déclaré au même endroit (`superpowers@claude-plugins-official`), même procédure d'installation.
+- Skill du projet `.claude/skills/chasing-clout-backend/` : comment lancer, tester et modifier le schéma, et les pièges déjà
+  rencontrés (port 5432 pris, mot de passe Postgres, cache JPA après une requête `@Modifying`…). Chargé automatiquement
+  quand une tâche backend s'y prête, rien à installer.
 - Exemple de prompt : *« Lis le README et attaque la phase 3 »*. À la fin de chaque phase, cocher la case ci-dessus et noter ce qui a été vérifié.
