@@ -16,7 +16,7 @@ Project rules and design choices are in the README (imported by CLAUDE.md). This
 ## Change the schema
 1. New file `initdb/<n>_<NAME>.sql` (never edit an existing one, never `ddl-auto=update`).
 2. Apply it to the running database (initdb scripts only run on an empty volume):
-   `docker exec -i chasing_clout_db psql -U root -d mydb -v ON_ERROR_STOP=1 < initdb/<n>_<NAME>.sql`
+   `docker exec -i chasing_clout_db psql -U root -d <DATABASE_NAME from .env> -v ON_ERROR_STOP=1 --single-transaction < initdb/<n>_<NAME>.sql`
 3. Update the entity in `models/` (no `@Table`/`@Column`: Spring's naming strategy maps `memeBalance` → `meme_balance`).
 4. `mvn test`: Hibernate runs in `validate`, so a mismatch fails at startup.
 5. Check the scripts from scratch on a throwaway container:
@@ -45,6 +45,6 @@ Project rules and design choices are in the README (imported by CLAUDE.md). This
 |---|---|---|
 | Entity still shows the old value right after a DAO update (balance, status) | `@Modifying` queries bypass the JPA cache | `@Modifying(flushAutomatically = true, clearAutomatically = true)`, or `entityManager.clear()` before rereading |
 | API starts but `/boosters` is `[]`, `/me` is 500 | another Postgres (e.g. an old `api_database` container) holds the port | `docker ps`, stop the other one, `docker compose up -d --force-recreate` |
-| `password authentication failed for user "root"` | `.env` password changed after the volume was created (Postgres reads it only once) | `docker exec -it chasing_clout_db psql -U root -d mydb -c "ALTER USER root WITH PASSWORD '<.env value>';"` |
+| `password authentication failed for user "root"` | `.env` password changed after the volume was created (Postgres reads it only once) | `docker exec -it chasing_clout_db psql -U root -d <DATABASE_NAME from .env> -c "ALTER USER root WITH PASSWORD '<.env value>';"` |
 | `npm start` fails with `ENOENT package.json` | run in the API folder | the front is `../chasing-clout-front` |
 | Test fails on a balance or an inventory size | it used `demo`, whose data changed | make the test create its own player |

@@ -147,7 +147,7 @@ Toutes les routes `/me/...` et `/market/...` qui agissent pour un joueur lisent 
 - [x] **Phase 8 — Marketplace** (voir « Marketplace » dans les choix de conception) : vérifié, `mvn test` passe (34 tests),
   scripts `initdb/` rejoués sur un Postgres vide
   - `initdb/4_MARKETPLACE.sql` : `card_listing`, `app_user.last_free_booster_claim`, joueur `rival`. Sur une base existante :
-    `docker exec -i chasing_clout_db psql -U root -d mydb < initdb/4_MARKETPLACE.sql` (sinon `docker compose down -v`).
+    `docker exec -i chasing_clout_db psql -U root -d <DATABASE_NAME du .env> -v ON_ERROR_STOP=1 --single-transaction < initdb/4_MARKETPLACE.sql` (sinon `docker compose down -v`).
   - `MarketService` (prix, achat système, annonces, achat P2P), `ShopService.claimFreeBooster`, `MarketController`, header `X-User-Id`.
   - `MarketServiceTest` (formule de prix), `MarketServiceIntegrationTest` (parcours, rollback), `MarketConcurrencyTest`
     (vrais threads, données commitées puis supprimées : 2 acheteurs → 1 seul gagne ; paiement refusé → annonce remise en vente ;
