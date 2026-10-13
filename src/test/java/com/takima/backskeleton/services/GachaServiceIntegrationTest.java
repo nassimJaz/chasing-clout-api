@@ -43,12 +43,12 @@ class GachaServiceIntegrationTest {
     @ParameterizedTest
     @CsvSource({"BASIC, 10", "SPECIAL, 10", "COLLECTION, 12"})
     void openDrawsTheRightCardsOnce(String code, int expectedCards) {
-        AppUser demo = appUserDao.findById(1L).orElseThrow();
+        AppUser player = appUserDao.save(new AppUser("gacha-" + System.nanoTime(), "x", 0));
         BoosterType type = boosterTypeDao.findAll().stream().filter(t -> t.getCode().equals(code)).findFirst().orElseThrow();
-        UserBooster booster = userBoosterDao.save(new UserBooster(demo, type, null));
-        int cardsBefore = collectionSize(demo);
+        UserBooster booster = userBoosterDao.save(new UserBooster(player, type, null));
+        int cardsBefore = collectionSize(player);
 
-        List<PulledCard> pulled = gachaService.open(demo.getId(), booster.getId());
+        List<PulledCard> pulled = gachaService.open(player.getId(), booster.getId());
 
         assertEquals(expectedCards, pulled.size());
         for (int i = 0; i < pulled.size(); i++) {
@@ -62,8 +62,8 @@ class GachaServiceIntegrationTest {
             }
         }
         entityManager.clear(); // addOne is a native upsert, reload the collection from the database
-        assertEquals(cardsBefore + expectedCards, collectionSize(demo));
-        assertThrows(ResponseStatusException.class, () -> gachaService.open(demo.getId(), booster.getId()));
+        assertEquals(cardsBefore + expectedCards, collectionSize(player));
+        assertThrows(ResponseStatusException.class, () -> gachaService.open(player.getId(), booster.getId()));
     }
 
     private int collectionSize(AppUser user) {

@@ -11,7 +11,9 @@ Project rules and design choices are in the README (imported by CLAUDE.md). This
 - Database: `docker compose up -d` (container `chasing_clout_db`, port from `DATABASE_PORT` in `.env`).
 - API: `mvn spring-boot:run` or ▶ on `BackSkeletonApplication` in IntelliJ. `application.properties` imports `.env` itself.
 - Tests: `mvn test` (the `*IntegrationTest` / `*ConcurrencyTest` classes need the database). Use `mvn`, not `./mvnw`.
-- Quick check: `curl http://localhost:8080/me` → `{"id":1,"username":"demo",...}`. Swagger: `/swagger-ui.html`.
+- Quick check: `curl -H 'Content-Type: application/json' -d '{"username":"essai","password":"motdepasse"}' localhost:8080/auth/register`
+  → `{"token":"..."}`, then `curl -H "Authorization: Bearer <token>" localhost:8080/me`. Swagger: `/swagger-ui.html`.
+- `.env` needs `JWT_SECRET` (32+ characters, `openssl rand -base64 48`), otherwise the API refuses to start.
 
 ## Change the schema
 1. New file `initdb/<n>_<NAME>.sql` (never edit an existing one, never `ddl-auto=update`).
@@ -30,12 +32,13 @@ Project rules and design choices are in the README (imported by CLAUDE.md). This
   of rows changed (`debit`, `markOpened`, `markSold`, `claimFreeBooster`...). The service checks `== 1`, otherwise throws
   `ResponseStatusException` (409 conflict, 429 cooldown, 400 bad input). Never read-then-write in Java.
 - Errors reach the front through `server.error.include-message=always`: write the message for the player, in French.
-- The current player is the `X-User-Id` header (default 1), declared with `@RequestHeader(value = MeController.USER, defaultValue = "1")`.
+- The current player comes from the JWT: `@CurrentUser Long userId` in the controller method. New routes need a token by default;
+  public ones are listed in `SecurityConfig`.
 
 ## Tests
 - Pure logic (prices, odds): plain JUnit, no Spring, static package-private method.
 - Integration: `@SpringBootTest @Transactional` (rolled back). Create your own players
-  (`appUserDao.save(new AppUser("x-" + System.nanoTime(), 5000))`): never assume `demo`'s balance or inventory, it is the
+  (`appUserDao.save(new AppUser("x-" + System.nanoTime(), "x", 5000))`): never assume a real player's balance or inventory, it is the
   developer's real save.
 - Concurrency: no `@Transactional`, real threads released by a `CountDownLatch`, setup and cleanup with `JdbcTemplate`
   (see `MarketConcurrencyTest`). Assert exactly one winner.
@@ -47,4 +50,5 @@ Project rules and design choices are in the README (imported by CLAUDE.md). This
 | API starts but `/boosters` is `[]`, `/me` is 500 | another Postgres (e.g. an old `api_database` container) holds the port | `docker ps`, stop the other one, `docker compose up -d --force-recreate` |
 | `password authentication failed for user "root"` | `.env` password changed after the volume was created (Postgres reads it only once) | `docker exec -it chasing_clout_db psql -U root -d <DATABASE_NAME from .env> -c "ALTER USER root WITH PASSWORD '<.env value>';"` |
 | `npm start` fails with `ENOENT package.json` | run in the API folder | the front is `../chasing-clout-front` |
-| Test fails on a balance or an inventory size | it used `demo`, whose data changed | make the test create its own player |
+| Test fails on a balance or an inventory size | it used a real player, whose data changed | make the test create its own player |
+| MockMvc call answers 401 | no token on a protected route | `.with(jwt().jwt(t -> t.subject(playerId)))` (see `ApiIntegrationTest.as`) |

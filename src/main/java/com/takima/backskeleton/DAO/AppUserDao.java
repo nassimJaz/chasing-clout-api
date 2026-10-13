@@ -6,8 +6,12 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface AppUserDao extends JpaRepository<AppUser, Long> {
+    Optional<AppUser> findByUsername(String username);
+
     // Atomic check + debit: returns 0 if the balance is too low, so concurrent purchases can't overspend.
     @Modifying
     @Query("UPDATE AppUser u SET u.memeBalance = u.memeBalance - :amount WHERE u.id = :id AND u.memeBalance >= :amount")

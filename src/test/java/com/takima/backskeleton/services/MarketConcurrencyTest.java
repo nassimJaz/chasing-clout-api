@@ -108,7 +108,7 @@ class MarketConcurrencyTest {
     }
 
     private Long user(long balance) {
-        Long id = jdbc.queryForObject("INSERT INTO app_user (username, meme_balance) VALUES (?, ?) RETURNING id",
+        Long id = jdbc.queryForObject("INSERT INTO app_user (username, password_hash, meme_balance) VALUES (?, 'x', ?) RETURNING id",
                 Long.class, "test-" + System.nanoTime(), balance);
         users.add(id);
         return id;

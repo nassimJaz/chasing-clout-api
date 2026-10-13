@@ -40,7 +40,7 @@ class ShopServiceIntegrationTest {
 
     @BeforeEach
     void createPlayer() {
-        player = appUserDao.save(new AppUser("shop-" + System.nanoTime(), 5000)).getId();
+        player = appUserDao.save(new AppUser("shop-" + System.nanoTime(), "x", 5000)).getId();
     }
 
     @Test

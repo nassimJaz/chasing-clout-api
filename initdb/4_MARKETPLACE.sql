@@ -22,6 +22,3 @@ create table card_listing
 );
 -- recent sales of one (card, finish), see CardListingDao.findRecentSalePrices
 create index on card_listing (meme_card_id, finish, sold_at) where status = 'SOLD';
-
--- A second player, to trade with demo (pick the player with the X-User-Id header).
-INSERT INTO app_user (username, meme_balance) VALUES ('rival', 5000);

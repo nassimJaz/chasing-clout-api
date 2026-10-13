@@ -35,6 +35,4 @@ Do $$
     INSERT INTO booster_slot_odds (booster_slot_id, rarity, weight) VALUES
         (_SLOT, 'VERY_RARE', 70), (_SLOT, 'ULTRA_RARE', 20), (_SLOT, 'SECRET', 10);
 
-    INSERT INTO app_user (username, meme_balance) VALUES ('demo', 5000);
-
     END $$;

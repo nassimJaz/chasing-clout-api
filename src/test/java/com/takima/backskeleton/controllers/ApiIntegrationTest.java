@@ -10,18 +10,21 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.empty;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// Needs the database (docker compose up -d); rolled back at the end. Plays with fresh players (X-User-Id header).
+// Needs the database (docker compose up -d); rolled back at the end. Plays with fresh players, logged in with as(id)
+// (a JWT built by spring-security-test, without going through /auth: AuthApiIntegrationTest covers that).
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
@@ -47,28 +50,28 @@ class ApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         int basicId = JsonPath.read(boosters, "$[0].id");
 
-        mvc.perform(post("/me/purchases").header(MeController.USER, player).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/me/purchases").with(as(player)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"format\": \"SINGLE\", \"boosterTypeId\": " + basicId + "}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalPrice").value(100));
 
-        String inventory = mvc.perform(get("/me/boosters").header(MeController.USER, player))
+        String inventory = mvc.perform(get("/me/boosters").with(as(player)))
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].code").value("BASIC"))
                 .andReturn().getResponse().getContentAsString();
         int boosterId = JsonPath.read(inventory, "$[0].id");
 
-        mvc.perform(post("/me/boosters/" + boosterId + "/open").header(MeController.USER, player))
+        mvc.perform(post("/me/boosters/" + boosterId + "/open").with(as(player)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(10)))
                 .andExpect(jsonPath("$[0].position").value(1))
                 .andExpect(jsonPath("$[0].card.imageUrl").exists())
                 .andExpect(jsonPath("$[0].finish").exists());
-        mvc.perform(post("/me/boosters/" + boosterId + "/open").header(MeController.USER, player))
+        mvc.perform(post("/me/boosters/" + boosterId + "/open").with(as(player)))
                 .andExpect(status().isConflict());
 
-        mvc.perform(get("/me/boosters").header(MeController.USER, player)).andExpect(jsonPath("$", hasSize(0)));
-        mvc.perform(get("/me/cards").header(MeController.USER, player)).andExpect(jsonPath("$", not(empty())));
+        mvc.perform(get("/me/boosters").with(as(player))).andExpect(jsonPath("$", hasSize(0)));
+        mvc.perform(get("/me/cards").with(as(player))).andExpect(jsonPath("$", not(empty())));
     }
 
     @Test
@@ -76,7 +79,7 @@ class ApiIntegrationTest {
         String boosters = mvc.perform(get("/boosters")).andReturn().getResponse().getContentAsString();
         int collectionId = JsonPath.read(boosters, "$[2].id");
 
-        mvc.perform(post("/me/purchases").header(MeController.USER, player(5000)).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/me/purchases").with(as(player(5000))).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"format\": \"DISPLAY_MEGA\", \"boosterTypeId\": " + collectionId + "}"))
                 .andExpect(status().isConflict());
     }
@@ -89,7 +92,7 @@ class ApiIntegrationTest {
 
         mvc.perform(get("/market/prices/1")).andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(3)));
 
-        String listing = mvc.perform(post("/market/listings").header(MeController.USER, seller)
+        String listing = mvc.perform(post("/market/listings").with(as(seller))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"memeCardId\": 1, \"finish\": \"NORMAL\", \"price\": 300}"))
                 .andExpect(status().isOk())
@@ -97,18 +100,23 @@ class ApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         int listingId = JsonPath.read(listing, "$.id");
 
-        mvc.perform(delete("/market/listings/" + listingId).header(MeController.USER, buyer))
+        mvc.perform(delete("/market/listings/" + listingId).with(as(buyer)))
                 .andExpect(status().isConflict()); // not the buyer's listing
-        mvc.perform(post("/market/listings/" + listingId + "/purchase").header(MeController.USER, buyer))
+        mvc.perform(post("/market/listings/" + listingId + "/purchase").with(as(buyer)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SOLD"));
 
-        mvc.perform(post("/me/free-booster").header(MeController.USER, buyer)).andExpect(status().isOk());
-        mvc.perform(post("/me/free-booster").header(MeController.USER, buyer)).andExpect(status().isTooManyRequests());
-        mvc.perform(get("/me").header(MeController.USER, buyer)).andExpect(jsonPath("$.nextFreeBoosterAt").exists());
+        mvc.perform(post("/me/free-booster").with(as(buyer))).andExpect(status().isOk());
+        mvc.perform(post("/me/free-booster").with(as(buyer))).andExpect(status().isTooManyRequests());
+        mvc.perform(get("/me").with(as(buyer))).andExpect(jsonPath("$.nextFreeBoosterAt").exists());
+    }
+
+    // A request made by this player: a token whose subject is their id, like AuthService's.
+    private static RequestPostProcessor as(String player) {
+        return jwt().jwt(token -> token.subject(player));
     }
 
     private String player(long balance) {
-        return appUserDao.save(new AppUser("api-" + System.nanoTime(), balance)).getId().toString();
+        return appUserDao.save(new AppUser("api-" + System.nanoTime(), "x", balance)).getId().toString();
     }
 }

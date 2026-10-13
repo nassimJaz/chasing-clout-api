@@ -2,6 +2,8 @@ create table app_user
 (
     id           BIGSERIAL PRIMARY KEY,
     username     TEXT        not null unique,
+    -- BCrypt hash, never the password itself (see AuthService)
+    password_hash TEXT       not null,
     -- in-game currency ("memes"); the check makes a concurrent double spend fail instead of going negative
     meme_balance BIGINT      not null default 0 check (meme_balance >= 0),
     created_at   TIMESTAMPTZ not null default now()

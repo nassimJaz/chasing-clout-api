@@ -47,8 +47,8 @@ class MarketServiceIntegrationTest {
     @BeforeEach
     void setUp() {
         common = memeCardDao.findAll().stream().filter(c -> c.getRarity() == Rarity.COMMON).findFirst().orElseThrow();
-        seller = appUserDao.save(new AppUser("seller-" + System.nanoTime(), 1000)).getId();
-        buyer = appUserDao.save(new AppUser("buyer-" + System.nanoTime(), 1000)).getId();
+        seller = appUserDao.save(new AppUser("seller-" + System.nanoTime(), "x", 1000)).getId();
+        buyer = appUserDao.save(new AppUser("buyer-" + System.nanoTime(), "x", 1000)).getId();
     }
 
     @Test

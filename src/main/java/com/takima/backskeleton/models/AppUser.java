@@ -14,6 +14,8 @@ public class AppUser {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String username;
+    // BCrypt hash, set by AuthService.register
+    private String passwordHash;
     // Only change it through AppUserDao.debit, which can't go below zero.
     private long memeBalance;
     private Instant createdAt = Instant.now();
@@ -23,8 +25,9 @@ public class AppUser {
     protected AppUser() {
     }
 
-    public AppUser(String username, long memeBalance) {
+    public AppUser(String username, String passwordHash, long memeBalance) {
         this.username = username;
+        this.passwordHash = passwordHash;
         this.memeBalance = memeBalance;
     }
 
@@ -34,6 +37,10 @@ public class AppUser {
 
     public String getUsername() {
         return username;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
     }
 
     public long getMemeBalance() {

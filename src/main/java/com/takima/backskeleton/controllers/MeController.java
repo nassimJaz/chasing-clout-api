@@ -11,25 +11,23 @@ import com.takima.backskeleton.DTO.UserBoosterDto;
 import com.takima.backskeleton.DTO.UserCardDto;
 import com.takima.backskeleton.services.GachaService;
 import com.takima.backskeleton.services.ShopService;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
-// The current player, chosen by the X-User-Id header (demo, id 1, by default).
-// ponytail: the header stands in for authentication and anyone can set it; replace it with a session or a JWT.
+// The logged-in player (@CurrentUser, from the JWT): every route needs a token, 401 without one.
 @CrossOrigin
 @RequestMapping("me")
 @RestController
 public class MeController {
-    static final String USER = "X-User-Id";
-
     private final AppUserDao appUserDao;
     private final UserBoosterDao userBoosterDao;
     private final UserCardDao userCardDao;
@@ -46,12 +44,14 @@ public class MeController {
     }
 
     @GetMapping("")
-    public ProfileDto profile(@RequestHeader(value = USER, defaultValue = "1") Long userId) {
-        return ProfileDto.from(appUserDao.findById(userId).orElseThrow());
+    public ProfileDto profile(@CurrentUser Long userId) {
+        // a valid token for a deleted player (database reset): 401 so the front logs out
+        return ProfileDto.from(appUserDao.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Compte introuvable, reconnecte-toi")));
     }
 
     @PostMapping("purchases")
-    public PurchaseDto buy(@RequestHeader(value = USER, defaultValue = "1") Long userId,
+    public PurchaseDto buy(@CurrentUser Long userId,
                            @RequestBody PurchaseRequest request) {
         return PurchaseDto.from(shopService.buy(userId, request.format(), request.boosterTypeId(),
                 request.secondBoosterTypeId()));
@@ -59,25 +59,25 @@ public class MeController {
 
     // A free Basic booster every 30 minutes (429 before that), opened with boosters/{id}/open.
     @PostMapping("free-booster")
-    public UserBoosterDto claimFreeBooster(@RequestHeader(value = USER, defaultValue = "1") Long userId) {
+    public UserBoosterDto claimFreeBooster(@CurrentUser Long userId) {
         return UserBoosterDto.from(shopService.claimFreeBooster(userId));
     }
 
     // Unopened boosters.
     @GetMapping("boosters")
-    public List<UserBoosterDto> boosters(@RequestHeader(value = USER, defaultValue = "1") Long userId) {
+    public List<UserBoosterDto> boosters(@CurrentUser Long userId) {
         return userBoosterDao.findByUserIdAndOpenedAtIsNull(userId).stream().map(UserBoosterDto::from).toList();
     }
 
     // The drawn cards, in reveal order.
     @PostMapping("boosters/{id}/open")
-    public List<PulledCardDto> open(@RequestHeader(value = USER, defaultValue = "1") Long userId,
+    public List<PulledCardDto> open(@CurrentUser Long userId,
                                     @PathVariable Long id) {
         return gachaService.open(userId, id).stream().map(PulledCardDto::from).toList();
     }
 
     @GetMapping("cards")
-    public List<UserCardDto> cards(@RequestHeader(value = USER, defaultValue = "1") Long userId) {
+    public List<UserCardDto> cards(@CurrentUser Long userId) {
         return userCardDao.findByUserId(userId).stream().map(UserCardDto::from).toList();
     }
 }

@@ -7,7 +7,8 @@ Back : Java 17, Spring Boot 3.1, JPA/Hibernate 6, PostgreSQL. Front : Angular 17
 ## Set up
 1. Copie-colle le `.env.sample` en `.env`
 2. Remplis le fichier `.env` avec les credentials de ton choix (`DATABASE_PORT=5432` par défaut ; change-le si un autre Postgres utilise déjà ce port)
-3. Fais un `docker compose up -d` : crée la base et exécute `initdb/*.sql` (tables, boosters, 300 cartes, utilisateur `demo`)
+   et `JWT_SECRET` (signe les jetons de connexion, 32 caractères minimum) : `openssl rand -base64 48`
+3. Fais un `docker compose up -d` : crée la base et exécute `initdb/*.sql` (tables, boosters, 300 cartes ; aucun joueur, on s'inscrit depuis le front)
    - Les scripts ne tournent **que sur un volume vide**. Après une modif SQL : `docker compose down -v` puis `docker compose up -d`
 4. Rajoute le plugin : [env-file](https://plugins.jetbrains.com/plugin/7861-envfile)
 5. Ajoute ton fichier `.env` comme ci-dessous (n'oublie pas d'activer les fichiers cachés)
@@ -41,7 +42,7 @@ erDiagram
 
 | Table | Rôle |
 |---|---|
-| `app_user` | Joueur, son solde de *memes* (`CHECK >= 0`) et `last_free_booster_claim` (cooldown du booster gratuit) |
+| `app_user` | Joueur (pseudo unique, mot de passe haché en BCrypt), son solde de *memes* (`CHECK >= 0`) et `last_free_booster_claim` (cooldown du booster gratuit) |
 | `meme_card` | Les 300 cartes ; chacune a une rareté **fixe** |
 | `booster_type` | BASIC (100), SPECIAL (250), COLLECTION (500) |
 | `booster_slot` / `booster_slot_odds` | Slots d'un booster (nb de cartes) et poids de chaque rareté |
@@ -62,15 +63,18 @@ erDiagram
 - **Images en statique** dans `src/main/resources/static/memes/` : les URLs du dataset Hugging Face expirent.
   `scripts/import_memes.py` (Python stdlib) régénère les images et `initdb/3_CARDS.sql` ; ne pas éditer ce fichier à la main.
 - **Prix et économie** (valeurs de départ, modifiables dans `2_DEFAULT_ENTRIES.sql`) : Basic 100, Spécial 250,
-  Collection 500 ; l'utilisateur `demo` démarre avec 5000 memes.
+  Collection 500 ; un joueur démarre avec 5000 memes (`AuthService.STARTING_BALANCE`).
 
 ### Règles décidées pour la suite
 - **Remise** : sur `n` boosters, `n / 3` (division entière) sont à -60 %, soit `prix × 40 / 100` (les prix sont multiples de 5, donc ça tombe juste).
 - **Mixte 50/50** : seulement pour Display Medium (15 + 15, 5 remisés par type) et Display Méga (30 + 30, 10 par type) ;
   1, 3 et 9 boosters ne se coupent pas en deux moitiés égales.
 - **Achat ≠ ouverture** : acheter crée des `user_booster` non ouverts, l'ouverture est un appel séparé.
-- **Pas d'authentification pour l'instant** : le joueur courant vient du header `X-User-Id` (défaut `demo`, id 1 ; `rival` = id 2
-  sur une base neuve). N'importe qui peut le changer : à remplacer par une vraie session/JWT.
+- **Authentification par JWT** (Spring Security, sans session) : `/auth/register` et `/auth/login` renvoient un jeton signé
+  (HS256, clé `JWT_SECRET`, valable 24 h) dont le `sub` est l'id du joueur. Le front le renvoie dans `Authorization: Bearer <token>`
+  et les controllers le lisent avec `@CurrentUser Long userId`. Les règles d'accès sont dans `SecurityConfig` : catalogue et
+  lectures du marché publics, tout le reste demande un jeton (401 sinon). Déconnexion = le front oublie le jeton : il reste
+  valable jusqu'à son expiration (pas de liste de révocation).
 
 ### Marketplace (phase 8)
 - **« Effet » = finition.** Une carte vendue est un couple (carte, finition). Prix algorithmique =
@@ -98,6 +102,8 @@ CORS ouvert par `@CrossOrigin` sur les controllers. En cas d'erreur, le JSON con
 
 | Méthode | URL | Rôle |
 |---|---|---|
+| POST | `/auth/register` | Inscription : `{"username": "remi", "password": "motdepasse"}` → `{"token": "..."}`, 5000 memes. 409 si le pseudo est pris, 400 si pseudo (3 à 20 caractères : lettres, chiffres, `. _ -`) ou mot de passe (8 min.) invalide |
+| POST | `/auth/login` | Connexion, même corps → `{"token": "..."}`. 401 si le pseudo ou le mot de passe est faux |
 | GET | `/cards` | Les 300 cartes (`id`, `name`, `imageUrl`, `rarity`) |
 | GET | `/boosters` | Les 3 boosters : `price`, `prices` par format, `slots` avec leurs poids. Mixte = `(prices[A] + prices[B]) / 2` |
 | GET | `/me` | Profil du joueur (`username`, `memeBalance`, `nextFreeBoosterAt`) |
@@ -113,7 +119,8 @@ CORS ouvert par `@CrossOrigin` sur les controllers. En cas d'erreur, le JSON con
 | DELETE | `/market/listings/{id}` | Retirer son annonce (la carte revient). 409 si déjà vendue ou pas à soi |
 | POST | `/market/listings/{id}/purchase` | Acheter une annonce. 409 si déjà vendue, à soi, ou solde insuffisant |
 
-Toutes les routes `/me/...` et `/market/...` qui agissent pour un joueur lisent le header `X-User-Id` (défaut 1).
+Toutes les routes `/me/...` et les écritures `/market/...` demandent `Authorization: Bearer <token>` (401 sans jeton valide).
+Dans Swagger, coller le jeton via le cadenas n'est pas configuré : tester ces routes avec curl ou le front.
 
 ## Avancement
 
@@ -176,6 +183,18 @@ Toutes les routes `/me/...` et `/market/...` qui agissent pour un joueur lisent 
     dans `app.module.ts`. Garder les couleurs en variables CSS (pas de `@use "theme"` dans un composant, cf. README du front).
   - Pas encore d'endpoint pour l'historique de ses ventes / achats ni pour « mes annonces » (on filtre `GET /market/listings`
     par vendeur) : à ajouter côté API si le front en a besoin.
+
+- [x] **Phase 10 — Connexion (JWT)** : vérifié, `mvn test` passe (48 tests) sur une base repartie de zéro, et parcours testé avec curl
+  (inscription, `/me` avec et sans jeton, messages 400 / 401 / 409, CORS du preflight avec `Authorization`)
+  - `initdb/` modifiés : `app_user.password_hash`, joueurs `demo` / `rival` supprimés. **Sur une base existante : `docker compose down -v`
+    puis `docker compose up -d`** (les anciens comptes disparaissent), et ajouter `JWT_SECRET` au `.env`.
+  - `SecurityConfig` (règles d'accès, encodeur/décodeur JWT, BCrypt), `AuthService`, `AuthController`, annotation `@CurrentUser`
+    qui remplace le header `X-User-Id`.
+  - `AuthServiceTest` (sans Spring ni base, DAO simulé par Mockito) : mot de passe haché, jeton signé avec le bon `sub` et 24 h de
+    validité, pseudo pris → 409, entrées invalides → 400 sans toucher la base, mauvais mot de passe / pseudo inconnu → 401 avec le même message.
+  - `AuthApiIntegrationTest` (MockMvc, vraie sécurité) : inscription puis `/me` avec le jeton, connexion, routes refusées sans jeton,
+    avec un jeton bidon ou signé par une autre clé ; catalogue public. Les autres tests MockMvc se connectent avec `jwt()` de `spring-security-test`.
+  - Front (branche `feature/auth`) : pages `/connexion` et `/inscription`, jeton en `localStorage`, interceptor, guards, déconnexion dans la navbar.
 
 ### Points ouverts
 - Quelques noms du dataset sont douteux pour un projet d'école (ex. « Pedobear ») : à filtrer ou renommer dans `scripts/import_memes.py` si besoin.
