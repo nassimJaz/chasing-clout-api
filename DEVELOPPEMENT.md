@@ -134,8 +134,12 @@ dans le [README](README.MD).
     avec un jeton bidon ou signé par une autre clé ; catalogue public. Les autres tests MockMvc se connectent avec `jwt()` de `spring-security-test`.
   - Front (branche `feature/auth`) : pages `/connexion` et `/inscription`, jeton en `localStorage`, interceptor, guards, déconnexion dans la navbar.
 
-- [ ] **Phase 11 — Démo en Docker** : écrite, **à vérifier** (le premier `docker compose -f docker-compose.demo.yml up -d --build --wait`
-  a échoué sur un timeout réseau du `npm ci` de l'image du front). `DemoDataTest` passe.
+- [x] **Phase 11 — Démo en Docker** : vérifié, `docker compose -f docker-compose.demo.yml up -d --build --wait` sur des volumes vides
+  (prête en 9 s une fois les images construites ; première construction longue, surtout les dépendances Maven), puis dans Chrome
+  headless via nginx : redirection vers `/connexion`, connexion `prof`, navbar, collection avec images, inventaire (4 boosters),
+  marché (Acheter / Retirer), déconnexion, aucune erreur JS ni HTTP. `mvn test` passe (49 tests).
+  - Bean `RandomGenerator` : `new Random()` au lieu de `RandomGenerator.getDefault()`, dont l'algorithme vient du module
+    `jdk.random`, absent du JRE de l'image (l'API ne démarrait pas en Docker) ; `Random` est en plus thread-safe.
   - `Dockerfile` (build Maven puis JRE, utilisateur non root), `.dockerignore` (jamais le `.env`), `docker-compose.demo.yml`
     (healthchecks : la base attend la fin des scripts `initdb/`, l'API n'est prête que quand `prof` peut se connecter, le front attend l'API).
   - `DemoData` (`@Profile("demo")`, idempotent) et `DemoDataTest` (rollback, ne touche pas la base de dev).
