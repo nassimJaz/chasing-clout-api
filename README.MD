@@ -14,8 +14,8 @@ Une commande construit et démarre la base de données (avec des comptes de dém
 
 1. Cloner les deux dépôts **dans le même dossier** :
    ```
-   git clone <url>/chasing-clout-api
-   git clone <url>/chasing-clout-front
+   git clone https://github.com/nassimJaz/chasing-clout-api.git
+   git clone https://github.com/nassimJaz/chasing-clout-front.git
    ```
 2. Depuis le dossier `chasing-clout-api` :
    ```
