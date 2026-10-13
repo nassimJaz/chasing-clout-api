@@ -1,0 +1,9 @@
+# .env holds real secrets: never in an image
+.env
+target
+.git
+.idea
+.claude
+img-readme
+initdb
+scripts

@@ -1,0 +1,51 @@
+# The whole app with demo data, for whoever tests it: only Docker needed (see "Tester l'application" in the README).
+# Needs the front repo cloned next to this one (../chasing-clout-front). Separate from docker-compose.yml (dev base).
+name: chasing-clout-demo
+services:
+  db:
+    image: postgres:18
+    environment:
+      # demo only: the database isn't published outside the stack
+      POSTGRES_USER: chasing
+      POSTGRES_PASSWORD: chasing
+      POSTGRES_DB: chasing_clout
+    volumes:
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      # over TCP: while the initdb scripts run, Postgres only listens on its socket, so this waits for them
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "chasing", "-d", "chasing_clout"]
+      interval: 2s
+      retries: 30
+
+  api:
+    build: .
+    environment:
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_NAME: chasing_clout
+      DATABASE_USER: chasing
+      DATABASE_PASSWORD: chasing
+      JWT_SECRET: ${JWT_SECRET:-demo-only-secret-not-for-production-0123456789}
+      # DemoData creates prof / prof1234 and rival / rival1234 on the first start
+      SPRING_PROFILES_ACTIVE: demo
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # ready = the demo account can log in, so DemoData has run
+      test: ["CMD-SHELL", "curl -fs -o /dev/null -H 'Content-Type: application/json' -d '{\"username\":\"prof\",\"password\":\"prof1234\"}' http://localhost:8080/auth/login"]
+      interval: 3s
+      start_period: 10s
+      retries: 40
+
+  front:
+    build: ../chasing-clout-front
+    ports:
+      - "${DEMO_PORT:-4200}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  db-data:

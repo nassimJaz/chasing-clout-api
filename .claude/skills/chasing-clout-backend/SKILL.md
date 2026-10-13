@@ -5,7 +5,7 @@ description: How to run, test and change the chasing-clout-api backend (Spring B
 
 # Chasing Clout backend
 
-Project rules and design choices are in the README (imported by CLAUDE.md). This skill is the how-to.
+Project rules and design choices are in README.MD and DEVELOPPEMENT.md (both imported by CLAUDE.md). This skill is the how-to.
 
 ## Run
 - Database: `docker compose up -d` (container `chasing_clout_db`, port from `DATABASE_PORT` in `.env`).
