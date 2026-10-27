@@ -48,7 +48,7 @@ dans le [README](README.MD).
   `prix = algo + 30 % × (95 % × moyenne − algo)`. Le lissage (30 %) et la marge (5 %) gardent le prix **sous la moyenne** ;
   un marché qui baisse ne le fait jamais passer sous le prix algorithmique.
 - **Le système rachète, il ne vend pas** : `MarketService.sellToSystem` retire une carte de la collection (`removeOne`, atomique)
-  et crédite `buyback = max(1, 50 % × prix de base)`. Pour acheter une carte précise, il faut passer par une annonce P2P.
+  et crédite `buyback = max(1, 30 % × prix de base)`. Pour acheter une carte précise, il faut passer par une annonce P2P.
 - **Temps réel, pas de worker** : le prix est calculé à la lecture (requête indexée sur ≤ 10 lignes), donc toujours à jour
   et rien à synchroniser. Un worker/cache ne deviendrait utile qu'avec beaucoup de trafic.
 - **Achat simultané d'une même annonce** : `CardListingDao.markSold` (`UPDATE … WHERE status = 'ACTIVE'`) ne réussit que pour

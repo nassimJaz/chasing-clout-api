@@ -100,11 +100,11 @@ class MarketServiceIntegrationTest {
 
         // 20 + 30% x (95% x 200 - 20): raised, but under the 200 the players pay
         assertEquals(71, marketService.basePrice(common, Finish.HOLO));
-        assertEquals(35, marketService.buyback(common, Finish.HOLO));
+        assertEquals(21, marketService.buyback(common, Finish.HOLO)); // 30% x 71
     }
 
     @Test
-    void systemBuysBackAtHalfThePrice() {
+    void systemBuysBackAtThirtyPercentOfThePrice() {
         userCardDao.addOne(seller, common.getId(), "NORMAL");
         long buyback = marketService.buyback(common, Finish.NORMAL);
 

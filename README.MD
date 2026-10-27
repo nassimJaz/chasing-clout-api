@@ -60,7 +60,7 @@ IntelliJ) : les deux utilisent le port 8080.
   finition est tirée en plus : Normale (94 %), Holo (5 %) ou Enflammée (1 %).
 - **Collection** : les 300 cartes, grisées tant qu'on ne les possède pas, chacune visible en 3D.
 - **Marché** : mettre une carte en vente au prix de son choix, acheter celles des autres, retirer son annonce. Le système
-  rachète aussi n'importe quelle carte à 50 % de son prix (il n'en vend pas) ; ce prix suit les ventes récentes entre joueurs.
+  rachète aussi n'importe quelle carte à 30 % de son prix (il n'en vend pas) ; ce prix suit les ventes récentes entre joueurs.
 - **Booster gratuit** toutes les 30 minutes.
 
 ## Architecture

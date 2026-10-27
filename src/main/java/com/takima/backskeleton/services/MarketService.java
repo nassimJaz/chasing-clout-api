@@ -22,8 +22,9 @@ public class MarketService {
     static final int MIN_SALES = 3;
     // ponytail: "recent" = the last 10 sales, whatever their age; add a time window if old sales skew prices.
     static final int RECENT_SALES = 10;
-    // The system buys cards back at half their base price, and never sells any.
-    static final double BUYBACK_RATE = 0.5;
+    // The system buys cards back at 30% of their base price, and never sells any: low enough that opening boosters
+    // and reselling everything loses memes (see ShopServiceIntegrationTest.resellingABoosterToTheSystemLosesMemes).
+    static final double BUYBACK_RATE = 0.3;
 
     private final AppUserDao appUserDao;
     private final MemeCardDao memeCardDao;

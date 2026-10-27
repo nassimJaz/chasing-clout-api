@@ -4,7 +4,9 @@ import com.takima.backskeleton.DAO.AppUserDao;
 import com.takima.backskeleton.DAO.BoosterTypeDao;
 import com.takima.backskeleton.DAO.UserBoosterDao;
 import com.takima.backskeleton.models.AppUser;
+import com.takima.backskeleton.models.BoosterSlot;
 import com.takima.backskeleton.models.BoosterType;
+import com.takima.backskeleton.models.Finish;
 import com.takima.backskeleton.models.Purchase;
 import com.takima.backskeleton.models.PurchaseFormat;
 import com.takima.backskeleton.models.UserBooster;
@@ -16,10 +18,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // Needs the database (docker compose up -d); every test is rolled back. Each test buys with a fresh 5000-meme player.
 @SpringBootTest
@@ -89,6 +93,26 @@ class ShopServiceIntegrationTest {
     private long balance() {
         entityManager.clear(); // debit is a bulk update, reload the user from the database
         return appUserDao.findById(player).orElseThrow().getMemeBalance();
+    }
+
+    // Economy guard, read-only: what a booster is expected to resell for (odds from the database x average finish
+    // multiplier x buyback) must stay under its price in a display, where a third is at -60%.
+    @Test
+    void resellingABoosterToTheSystemLosesMemes() {
+        double finishMultiplier = Arrays.stream(Finish.values()).mapToDouble(f -> f.weight * f.priceMultiplier).sum()
+                / Arrays.stream(Finish.values()).mapToInt(f -> f.weight).sum(); // 1.29
+        for (BoosterType type : boosterTypeDao.findAll()) {
+            double cardsValue = 0;
+            for (BoosterSlot slot : type.getSlots()) {
+                double total = slot.getWeights().values().stream().mapToInt(Integer::intValue).sum();
+                double meanRarityPrice = slot.getWeights().entrySet().stream()
+                        .mapToDouble(e -> e.getKey().price * e.getValue() / total).sum();
+                cardsValue += slot.getCardCount() * meanRarityPrice;
+            }
+            double resale = cardsValue * finishMultiplier * MarketService.BUYBACK_RATE;
+            double displayUnitPrice = ShopService.price(type.getPrice(), 30) / 30.0;
+            assertTrue(resale < displayUnitPrice, type.getCode() + ": resale " + resale + " >= " + displayUnitPrice);
+        }
     }
 
     private List<UserBooster> boostersOf(Purchase purchase) {
