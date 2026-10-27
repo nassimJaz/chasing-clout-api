@@ -46,6 +46,11 @@ Prérequis : Docker pour la base seule, Java 17, Maven, Node 18 ou 20.
 3. `mvn spring-boot:run` : API sur http://localhost:8080 (`application.properties` lit le `.env`)
 4. Dans `chasing-clout-front` : `npm i` puis `npm start`, application sur http://localhost:4200 ; créer un compte
 
+### Lancer l'API avec Docker (développement)
+Avec un `.env` rempli (dont `JWT_SECRET`), `docker compose up -d --build` démarre la base **et** l'API sur
+http://localhost:8080, sans données de démonstration. Arrêter d'abord une API lancée en local (`mvn spring-boot:run` ou
+IntelliJ) : les deux utilisent le port 8080.
+
 ## Fonctionnalités
 - **Comptes** : inscription, connexion et déconnexion. Chaque joueur démarre avec 5000 memes.
 - **Boutique** : trois boosters (Basic 100, Spécial 250, Collection 500 memes), à l'unité, en tri-pack ou en display de 9,

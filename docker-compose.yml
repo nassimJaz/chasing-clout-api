@@ -1,4 +1,3 @@
-version: '3.1'
 services:
   database:
     container_name: chasing_clout_db
@@ -16,3 +15,24 @@ services:
     volumes:
       # scripts only run on an empty volume: `docker compose down -v` to reset the DB
       - ./initdb:/docker-entrypoint-initdb.d
+    healthcheck:
+      # over TCP: while the initdb scripts run, Postgres only listens on its socket, so this waits for them
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "${DATABASE_PORT}", "-U", "${DATABASE_USER}", "-d", "${DATABASE_NAME}"]
+      interval: 2s
+      retries: 30
+
+  # The API built from the Dockerfile, without the demo profile: same database and accounts as `mvn spring-boot:run`.
+  api:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # the service name; DATABASE_PORT comes from .env (Postgres listens on it through PGPORT)
+      DATABASE_HOST: database
+      JWT_SECRET: ${JWT_SECRET:?add JWT_SECRET to .env}
+    ports:
+      - "8080:8080"
+    depends_on:
+      database:
+        condition: service_healthy
